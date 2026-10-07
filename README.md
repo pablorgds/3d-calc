@@ -23,7 +23,7 @@ node --experimental-strip-types --test src/lib/custo.test.ts
 
 - **Calculadora** (`/`) — peça única ou lote, várias cores no mesmo objeto, mão de obra. Cópias na mesa só existem no lote. Energia e depreciação vêm de Configurações. Tudo começa em zero.
 - **Projetos** (`/projetos`) — lista vazia.
-- **Configurações** (`/configuracoes`) — potência, R$/kWh, preço da impressora e vida útil, salvos neste navegador.
+- **Configurações** (`/configuracoes`) — K2 Pro já preenchida (150 W, R$ 1,18/kWh, R$ 7.979, 3.000 h). O que mudar fica neste navegador.
 
 ## Fora desta versão
 

@@ -16,8 +16,8 @@ export function ConfiguracoesForm() {
       <CardHeader>
         <CardTitle>Impressora e energia</CardTitle>
         <CardDescription>
-          A calculadora lê estes valores daqui. Ainda é uma impressora só. Tudo começa em zero e fica
-          neste navegador.
+          K2 Pro, com os números que já estavam na calculadora. A tela de custo lê daqui. Ainda é uma
+          impressora só, e o que você alterar fica neste navegador.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3 sm:grid-cols-2">

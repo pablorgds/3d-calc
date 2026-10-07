@@ -10,33 +10,51 @@ export type PrinterSettings = {
   lifeHours: string
 }
 
-export const emptyPrinter: PrinterSettings = {
+export const defaultPrinter: PrinterSettings = {
+  watts: "150",
+  energyPrice: "1.18",
+  printerPrice: "7979",
+  lifeHours: "3000",
+}
+
+const blankPrinter: PrinterSettings = {
   watts: "0",
   energyPrice: "0",
   printerPrice: "0",
   lifeHours: "0",
 }
 
-let cache: PrinterSettings = emptyPrinter
+let cache: PrinterSettings = defaultPrinter
 let cacheRaw: string | null = null
 
+function isBlank(settings: PrinterSettings) {
+  return (
+    settings.watts === blankPrinter.watts &&
+    settings.energyPrice === blankPrinter.energyPrice &&
+    settings.printerPrice === blankPrinter.printerPrice &&
+    settings.lifeHours === blankPrinter.lifeHours
+  )
+}
+
 function parseSettings(raw: string | null): PrinterSettings {
-  if (!raw) return emptyPrinter
+  if (!raw) return defaultPrinter
   try {
-    const parsed = JSON.parse(raw) as Partial<PrinterSettings>
-    return {
-      watts: typeof parsed.watts === "string" ? parsed.watts : "0",
-      energyPrice: typeof parsed.energyPrice === "string" ? parsed.energyPrice : "0",
-      printerPrice: typeof parsed.printerPrice === "string" ? parsed.printerPrice : "0",
-      lifeHours: typeof parsed.lifeHours === "string" ? parsed.lifeHours : "0",
+    const parsed = JSON.parse(raw) as Partial<PrinterSettings> & { version?: number }
+    const settings = {
+      watts: typeof parsed.watts === "string" ? parsed.watts : defaultPrinter.watts,
+      energyPrice: typeof parsed.energyPrice === "string" ? parsed.energyPrice : defaultPrinter.energyPrice,
+      printerPrice: typeof parsed.printerPrice === "string" ? parsed.printerPrice : defaultPrinter.printerPrice,
+      lifeHours: typeof parsed.lifeHours === "string" ? parsed.lifeHours : defaultPrinter.lifeHours,
     }
+    if (!parsed.version && isBlank(settings)) return defaultPrinter
+    return settings
   } catch {
-    return emptyPrinter
+    return defaultPrinter
   }
 }
 
 export function readPrinterSettings(): PrinterSettings {
-  if (typeof window === "undefined") return emptyPrinter
+  if (typeof window === "undefined") return defaultPrinter
   const raw = window.localStorage.getItem(PRINTER_STORAGE_KEY)
   if (raw === cacheRaw) return cache
   cacheRaw = raw
@@ -45,7 +63,7 @@ export function readPrinterSettings(): PrinterSettings {
 }
 
 export function writePrinterSettings(settings: PrinterSettings) {
-  const raw = JSON.stringify(settings)
+  const raw = JSON.stringify({ ...settings, version: 2 })
   cache = settings
   cacheRaw = raw
   window.localStorage.setItem(PRINTER_STORAGE_KEY, raw)
@@ -62,5 +80,5 @@ function subscribe(onStoreChange: () => void) {
 }
 
 export function usePrinterSettings(): PrinterSettings {
-  return useSyncExternalStore(subscribe, readPrinterSettings, () => emptyPrinter)
+  return useSyncExternalStore(subscribe, readPrinterSettings, () => defaultPrinter)
 }

@@ -10,7 +10,7 @@ export default function ConfiguracoesPage() {
   return (
     <PageIntro
       title="Configurações"
-      lede="Potência, tarifa de energia, preço da impressora e vida útil. A calculadora usa só o que está aqui. Ainda não há lista para trocar de máquina."
+      lede="A K2 Pro já vem preenchida: 150 W, R$ 1,18 por kWh, R$ 7.979 e 3.000 horas. A calculadora usa só o que está aqui. Ainda não há lista para trocar de máquina."
     >
       <ConfiguracoesForm />
     </PageIntro>
