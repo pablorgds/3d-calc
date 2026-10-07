@@ -25,6 +25,10 @@ node --experimental-strip-types --test src/lib/*.test.ts
 - **Projetos** (`/projetos`) — lotes gravados neste navegador. Abrir, duplicar e apagar. O total usa a tarifa atual da impressora do projeto.
 - **Configurações** (`/configuracoes`) — K2 Pro já preenchida (150 W, R$ 1,18/kWh, R$ 7.979, 3.000 h). Dá para acrescentar máquina e marcar qual está em uso. O R$/kWh fica na impressora.
 
+## Documentação
+
+O [AGENTS.md](AGENTS.md) é o mapa para quem altera o código. O detalhe está em [docs/custo.md](docs/custo.md), [docs/dados.md](docs/dados.md) e [docs/arquitetura.md](docs/arquitetura.md).
+
 ## Fora desta versão
 
 Login, orçamento em PDF ou texto, refugo, impressão falha, purge, mão de obra por hora e tarifa diferente por projeto.
