@@ -1,7 +1,8 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,35 +10,21 @@ import { Label } from "@/components/ui/label"
 import { NumberField } from "@/components/number-field"
 import {
   calculate,
+  draftToCalcInput,
   formatBRL,
   formatDuration,
   formatGrams,
   parseDecimal,
-  parseInteger,
   type Amount,
   type CalcResult,
+  type ColorDraft,
   type EntryMode,
-  type Field,
 } from "@/lib/custo"
-import { usePrinterSettings } from "@/lib/impressora"
-
-type ColorDraft = {
-  id: string
-  name: string
-  hex: string
-  price: string
-  grams: string
-}
+import { setActivePrinter, usePrinterStore } from "@/lib/impressora"
+import { activePrinterOf } from "@/lib/impressora-store"
+import { useProject, writeProject, type Project } from "@/lib/projetos"
 
 const swatches = ["#78716c", "#57534e", "#a8a29e", "#44403c"]
-
-function combineTime(hoursRaw: string, minutesRaw: string): Field {
-  const hours = parseDecimal(hoursRaw)
-  const minutes = parseDecimal(minutesRaw)
-  if (hours.status === "empty" || minutes.status === "empty") return { status: "empty" }
-  if (hours.status === "invalid" || minutes.status === "invalid") return { status: "invalid" }
-  return { status: "ok", value: hours.value * 60 + minutes.value }
-}
 
 function showMoney(value: Amount) {
   return value === null ? "—" : formatBRL(value)
@@ -174,14 +161,55 @@ function ColorEditor({
   )
 }
 
-export function Calculadora() {
-  const [mode, setMode] = useState<EntryMode>("peca")
-  const [copies, setCopies] = useState("0")
-  const [hours, setHours] = useState("0")
-  const [minutesPart, setMinutesPart] = useState("0")
-  const [colors, setColors] = useState<ColorDraft[]>([])
-  const printer = usePrinterSettings()
-  const [labor, setLabor] = useState("0")
+function CalculadoraLoading() {
+  return (
+    <main className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-8 sm:px-6">
+      <header className="space-y-2">
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">Calculadora</h1>
+        <p className="max-w-2xl text-sm leading-6 text-muted-foreground">Lendo este navegador…</p>
+      </header>
+    </main>
+  )
+}
+
+export function Calculadora({ projectId }: { projectId: string | null }) {
+  const project = useProject(projectId)
+  if (project === undefined) return <CalculadoraLoading />
+  return (
+    <CalculadoraEditor
+      key={project?.id ?? (projectId ? `ausente-${projectId}` : "novo")}
+      projectId={projectId}
+      initial={project}
+      missing={projectId !== null && project === null}
+    />
+  )
+}
+
+function CalculadoraEditor({
+  projectId,
+  initial,
+  missing,
+}: {
+  projectId: string | null
+  initial: Project | null
+  missing: boolean
+}) {
+  const router = useRouter()
+  const printerStore = usePrinterStore()
+  const printer = printerStore ? activePrinterOf(printerStore) : null
+  const [projectName, setProjectName] = useState(initial?.name ?? "")
+  const [nameError, setNameError] = useState<string | null>(null)
+  const [mode, setMode] = useState<EntryMode>(initial?.mode ?? "peca")
+  const [copies, setCopies] = useState(initial?.copies ?? "0")
+  const [hours, setHours] = useState(initial?.hours ?? "0")
+  const [minutesPart, setMinutesPart] = useState(initial?.minutes ?? "0")
+  const [colors, setColors] = useState<ColorDraft[]>(initial?.colors ?? [])
+  const [labor, setLabor] = useState(initial?.labor ?? "0")
+
+  useEffect(() => {
+    if (!initial?.printerId) return
+    setActivePrinter(initial.printerId)
+  }, [initial])
 
   function updateColor(id: string, patch: Partial<ColorDraft>) {
     setColors((current) => current.map((color) => (color.id === id ? { ...color, ...patch } : color)))
@@ -206,25 +234,64 @@ export function Calculadora() {
 
   const result = useMemo(
     () =>
-      calculate({
-        mode,
-        copies: mode === "peca" ? { status: "ok", value: 1 } : parseInteger(copies),
-        minutes: combineTime(hours, minutesPart),
-        watts: parseDecimal(printer.watts),
-        energyPricePerKwh: parseDecimal(printer.energyPrice),
-        printerPrice: parseDecimal(printer.printerPrice),
-        lifeHours: parseDecimal(printer.lifeHours),
-        laborPercent: parseDecimal(labor),
-        colors: colors.map((color) => ({
-          id: color.id,
-          name: color.name,
-          hex: color.hex,
-          pricePerKg: parseDecimal(color.price),
-          grams: parseDecimal(color.grams),
-        })),
-      }),
+      printer
+        ? calculate(
+            draftToCalcInput(
+              { mode, copies, hours, minutes: minutesPart, labor, colors },
+              printer
+            )
+          )
+        : null,
     [mode, copies, hours, minutesPart, printer, labor, colors]
   )
+
+  function saveProject() {
+    if (!printer) return
+    const name = projectName.trim()
+    if (!name) {
+      setNameError("Dê um nome para gravar o lote.")
+      return
+    }
+    const id = !projectId || missing ? crypto.randomUUID() : projectId
+    writeProject({
+      id,
+      name,
+      printerId: printer.id,
+      mode,
+      copies,
+      hours,
+      minutes: minutesPart,
+      labor,
+      colors,
+      updatedAt: Date.now(),
+    })
+    setProjectName(name)
+    setNameError(null)
+    if (id !== projectId) router.replace(`/?projeto=${encodeURIComponent(id)}`)
+  }
+
+  function startNew() {
+    if (projectId) {
+      router.push("/")
+      return
+    }
+    setProjectName("")
+    setMode("peca")
+    setCopies("0")
+    setHours("0")
+    setMinutesPart("0")
+    setLabor("0")
+    setColors([])
+    setNameError(null)
+  }
+
+  if (!printerStore || !printer || !result) return <CalculadoraLoading />
+
+  const linkedPrinterMissing =
+    Boolean(projectId) &&
+    !missing &&
+    Boolean(initial?.printerId) &&
+    !printerStore.printers.some((item) => item.id === initial?.printerId)
 
   const notes = resultNotes(result, mode)
   const modeHint =
@@ -238,10 +305,95 @@ export function Calculadora() {
         <header className="space-y-2">
           <h1 className="font-heading text-2xl font-semibold tracking-tight">Calculadora</h1>
           <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-            Um objeto pode levar várias cores na mesma impressão. Potência, energia, preço e vida útil
-            vêm de Configurações. Tudo começa em zero. O lote em si não é salvo.
+            Um objeto pode levar várias cores na mesma impressão. Energia e depreciação vêm da impressora
+            marcada. Gravar o lote deixa o projeto neste navegador.
           </p>
         </header>
+
+        {missing ? (
+          <p className="rounded-lg bg-muted/60 p-3 text-sm text-muted-foreground" data-testid="projeto-ausente">
+            Esse projeto não está neste navegador. Salvar cria um novo.
+          </p>
+        ) : null}
+        {linkedPrinterMissing ? (
+          <p className="rounded-lg bg-muted/60 p-3 text-sm text-muted-foreground" data-testid="impressora-ausente">
+            A impressora gravada neste projeto foi removida. O cálculo usa a máquina marcada agora.
+          </p>
+        ) : null}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Projeto</CardTitle>
+            <CardDescription>
+              {projectId && !missing
+                ? "Gravado neste navegador. Salvar de novo atualiza este projeto."
+                : "Ainda não está na lista de Projetos."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form
+              className="grid gap-3"
+              onSubmit={(event) => {
+                event.preventDefault()
+                saveProject()
+              }}
+            >
+              <div className="grid gap-1.5">
+                <Label htmlFor="nome-projeto">Nome</Label>
+                <Input
+                  id="nome-projeto"
+                  value={projectName}
+                  onChange={(event) => {
+                    setProjectName(event.target.value)
+                    setNameError(null)
+                  }}
+                  placeholder="Nome do lote"
+                  autoComplete="off"
+                  aria-invalid={nameError !== null}
+                  data-testid="nome-projeto"
+                  className="h-11"
+                />
+                {nameError ? <p className="text-xs text-destructive">{nameError}</p> : null}
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="impressora-ativa">Impressora</Label>
+                <select
+                  id="impressora-ativa"
+                  value={printer.id}
+                  onChange={(event) => setActivePrinter(event.target.value)}
+                  data-testid="impressora-ativa"
+                  className="h-11 rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                >
+                  {printerStore.printers.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name.trim() || "Sem nome"}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  A tarifa fica na máquina.{" "}
+                  <Link href="/configuracoes" className="underline underline-offset-2">
+                    Editar em Configurações
+                  </Link>
+                  .
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="submit" className="h-11" data-testid="salvar-projeto">
+                  Salvar
+                </Button>
+                <Button type="button" variant="outline" className="h-11" onClick={startNew} data-testid="novo-projeto">
+                  Novo
+                </Button>
+                {projectId && !missing ? (
+                  <Link href="/projetos" className="inline-flex h-11 items-center text-sm underline underline-offset-2">
+                    Ver em Projetos
+                  </Link>
+                ) : null}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
@@ -328,10 +480,9 @@ export function Calculadora() {
           <CardDescription data-testid="origem-impressora">
             Peça e lote ao mesmo tempo.{" "}
             <Link href="/configuracoes" className="underline underline-offset-2">
-              Impressora e energia
-            </Link>{" "}
-            vêm de Configurações ({printer.watts} W, {printer.energyPrice} R$/kWh, impressora{" "}
-            {printer.printerPrice}, {printer.lifeHours} h).
+              {printer.name.trim() || "Sem nome"}
+            </Link>
+            : {printer.watts} W, {printer.energyPrice} R$/kWh, impressora {printer.printerPrice}, {printer.lifeHours} h.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">

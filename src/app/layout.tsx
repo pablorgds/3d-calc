@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     template: "%s · Custo por chapa",
   },
   description:
-    "Casca do app de precificação de impressão 3D. O cálculo, os projetos e as impressoras ainda não estão ligados.",
+    "Precificação de impressão 3D: custo por peça e por lote, projetos neste navegador e mais de uma impressora.",
 }
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

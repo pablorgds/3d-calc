@@ -242,6 +242,54 @@ export function calculate(input: CalcInput): CalcResult {
   }
 }
 
+export type ColorDraft = {
+  id: string
+  name: string
+  hex: string
+  price: string
+  grams: string
+}
+
+export type JobDraft = {
+  mode: EntryMode
+  copies: string
+  hours: string
+  minutes: string
+  labor: string
+  colors: ColorDraft[]
+}
+
+export function combineTime(hoursRaw: string, minutesRaw: string): Field {
+  const hours = parseDecimal(hoursRaw)
+  const minutes = parseDecimal(minutesRaw)
+  if (hours.status === "empty" || minutes.status === "empty") return { status: "empty" }
+  if (hours.status === "invalid" || minutes.status === "invalid") return { status: "invalid" }
+  return { status: "ok", value: hours.value * 60 + minutes.value }
+}
+
+export function draftToCalcInput(
+  draft: JobDraft,
+  printer: { watts: string; energyPrice: string; printerPrice: string; lifeHours: string }
+): CalcInput {
+  return {
+    mode: draft.mode,
+    copies: draft.mode === "peca" ? { status: "ok", value: 1 } : parseInteger(draft.copies),
+    minutes: combineTime(draft.hours, draft.minutes),
+    watts: parseDecimal(printer.watts),
+    energyPricePerKwh: parseDecimal(printer.energyPrice),
+    printerPrice: parseDecimal(printer.printerPrice),
+    lifeHours: parseDecimal(printer.lifeHours),
+    laborPercent: parseDecimal(draft.labor),
+    colors: draft.colors.map((color) => ({
+      id: color.id,
+      name: color.name,
+      hex: color.hex,
+      pricePerKg: parseDecimal(color.price),
+      grams: parseDecimal(color.grams),
+    })),
+  }
+}
+
 export function formatBRL(value: number): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value)
 }

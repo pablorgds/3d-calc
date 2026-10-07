@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { calculate, parseDecimal, parseInteger, type CalcInput, type Field } from "./custo.ts"
+import { calculate, draftToCalcInput, parseDecimal, parseInteger, type CalcInput, type Field } from "./custo.ts"
 
 const ok = (value: number): Field => ({ status: "ok", value })
 
@@ -82,6 +82,34 @@ test("mão de obra não incide sobre si mesma", () => {
   const baseCost = result.piece.material! + result.piece.energy! + result.piece.depreciation!
   assert.equal(result.piece.labor, baseCost * 0.2)
   assert.equal(result.piece.total, baseCost + result.piece.labor!)
+})
+
+test("peça única não usa as cópias guardadas no rascunho", () => {
+  const printer = { watts: "100", energyPrice: "1", printerPrice: "1000", lifeHours: "1000" }
+  const input = draftToCalcInput(
+    { mode: "peca", copies: "8", hours: "1", minutes: "0", labor: "0", colors: [] },
+    printer
+  )
+  assert.deepEqual(input.copies, { status: "ok", value: 1 })
+  assert.deepEqual(input.minutes, { status: "ok", value: 60 })
+})
+
+test("lote lê as cópias e a tarifa vem da impressora", () => {
+  const printer = { watts: "100", energyPrice: "1", printerPrice: "1000", lifeHours: "1000" }
+  const input = draftToCalcInput(
+    {
+      mode: "lote",
+      copies: "3",
+      hours: "0",
+      minutes: "30",
+      labor: "10",
+      colors: [{ id: "c", name: "Azul", hex: "#00f", price: "80", grams: "12" }],
+    },
+    printer
+  )
+  assert.deepEqual(input.copies, { status: "ok", value: 3 })
+  assert.deepEqual(input.energyPricePerKwh, { status: "ok", value: 1 })
+  assert.equal(input.colors[0].grams.status, "ok")
 })
 
 test("campo vazio e texto não viram zero", () => {
