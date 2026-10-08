@@ -23,7 +23,7 @@ export function NumberField({
 }) {
   const parsed = integer ? parseInteger(value) : parseDecimal(value)
   return (
-    <div className="grid gap-1.5">
+    <div className="campo">
       <Label htmlFor={id}>{label}</Label>
       <Input
         id={id}
@@ -37,9 +37,9 @@ export function NumberField({
       />
       {hint ? <p className="legenda text-muted-foreground">{hint}</p> : null}
       {parsed.status === "invalid" ? (
-        <p className="text-xs text-destructive">Use zero ou um número positivo.</p>
+        <p className="erro-campo">Use zero ou um número positivo.</p>
       ) : null}
-      {parsed.status === "empty" ? <p className="text-xs text-muted-foreground">Campo vazio.</p> : null}
+      {parsed.status === "empty" ? <p className="vazio-campo">Campo vazio.</p> : null}
     </div>
   )
 }

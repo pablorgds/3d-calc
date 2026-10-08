@@ -97,72 +97,95 @@ Status: done
 
 **C21** - Sem a classe `dark`, o botão primário tem fundo `#1A1A1A`, texto `#FFFFFF`, font-weight `600`, padding `12px`, border-radius `0` e min-height `44px` (AC 21)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "botao primario claro"`
+Status: done
 
 **C22** - No hover do botão primário, sem a classe `dark`, o fundo vai a `#181818` e a sombra a `0 4px 12px rgba(0,0,0,0.12)` em `200ms` ease-out (AC 22)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "hover do primario claro"`
+Status: done
 
 **C23** - Com o botão primário ativo, no claro e no escuro, ele desce com `translateY(1px)` (AC 23)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "ativo desce 1px"`
+Status: done
 
 **C24** - Sem a classe `dark`, o botão outline tem borda `1.5px` `#808080`, texto `#1A1A1A`, border-radius `0` e hover com fundo `#F5F1E8` (AC 24)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "botao outline claro"`
+Status: done
 
 **C25** - Sem a classe `dark`, o botão ghost tem borda de largura `0`, texto `#1A1A1A`, border-radius `0` e hover com fundo `#F5F1E8` (AC 25)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "botao ghost claro"`
+Status: done
 
 **C26** - Sem a classe `dark`, cada card tem fundo `#FFFFFF`, border-radius `0`, borda `1px` `#808080` e sombra `0 2px 12px rgba(0,0,0,0.06)` (AC 26)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "card claro"`
+Status: done
 
 **C27** - O rótulo de cada campo fica acima do input, a `0.875rem`, font-weight `500` e letter-spacing `0.04em` (AC 27)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "rotulo 0.875rem tracking 0.04em"`
+Status: done
 
 **C28** - O rótulo de cada campo fica a `0.5rem` do input (AC 28)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "rotulo a 0.5rem do campo"`
+Status: done
 
 **C29** - Cada input de texto tem border-radius `0` e borda `1px` solid `#808080` (AC 29)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "input raio 0 borda 808080"`
+Status: done
 
 **C30** - Com o input em foco, o anel é `2px` `#B38B6D` com offset `2px` (AC 30)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "anel de foco B38B6D"`
+Status: done
 
 **C31** - Valor inválido num campo numérico mostra `Use zero ou um número positivo.` abaixo do campo, em `#9B1C1C`, a `0.875rem` (AC 31)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "numero invalido 9B1C1C"`
+Status: done
 
 **C32** - Nome vazio ao gravar mostra `Dê um nome para gravar o lote.` abaixo do campo, em `#9B1C1C`, a `0.875rem` (AC 32)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "nome vazio ao gravar"`
+Status: done
 
 **C33** - Campo numérico vazio, sem a classe `dark`, mostra `Campo vazio.` abaixo do campo, em `#4A4A4A` (AC 33)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "campo vazio no claro"`
+Status: done
 
 **C34** - O link da página atual tem font-weight `500` e um indicador de `2px` `#B38B6D` (AC 34)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "nav ativo peso 500 traco B38B6D"`
+Status: done
 
 **C35** - O wordmark `custo/chapa`, inclusive a barra, está na fonte sans, peso `700` e cor `#FFFFFF` (AC 35)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "wordmark custo/chapa"`
+Status: done
 
 **C36** - A opção de modo marcada tem borda `2px` `#B38B6D` (AC 36)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "modo marcado borda B38B6D"`
+Status: done
 
 **C37** - Dinheiro, gramas e duração usam `font-family: var(--font-geist-mono)`, e `layout.tsx` define `--font-geist-sans` e `--font-geist-mono` (AC 37, door 2)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "figuras em geist mono"`
+Status: done
 
 **C38** - Cada amostra de cor do filamento é um círculo (AC 38)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "amostra de cor circular"`
+Status: done
 
 **C39** - `#B38B6D` aparece no indicador da nav, na borda do modo marcado e no anel de foco, e em nenhum outro uso (AC 39)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "taupe so no traco no modo e no anel"`
+Status: done
 
 **C40** - O contraste fica em pelo menos `7:1` para `#1A1A1A` sobre `#FFFFFF`, `#4A4A4A` sobre `#FFFFFF`, `#4A4A4A` sobre `#F5F1E8`, `#FFFFFF` sobre `#1A1A1A`, `#D6D6D6` sobre `#1A1A1A` e `#9B1C1C` sobre `#FFFFFF` (AC 40)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "contraste 7 para 1"`
+Status: done
 
 **C41** - Sem a classe `dark`, a lavagem muted é `#F5F1E8` (AC 41)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "lavagem muted F5F1E8"`
+Status: done
 
 **C42** - O texto do botão destructive é `#9B1C1C` (AC 42)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "texto destructive 9B1C1C"`
+Status: done
 
 **C43** - A interface não contém caractere emoji (AC 43)
 Proof: `node --experimental-strip-types --test src/lib/controles.test.ts --test-name-pattern "interface sem emoji"`
+Status: done
 
 ### S3 - Movimento · 4 files · 34 KB · ~9k
 

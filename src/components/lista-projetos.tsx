@@ -17,13 +17,13 @@ function colorLabel(count: number) {
   return `${count} cores`
 }
 
-function projectSummary(project: Project) {
+function projectParts(project: Project) {
   const minutes = combineTime(project.hours, project.minutes)
   const time = minutes.status === "ok" ? formatDuration(minutes.value) : "tempo incompleto"
   const scope = project.mode === "peca" ? "peça" : "lote"
   const mode = project.mode === "peca" ? "Peça única" : `Lote · ${project.copies} cópias`
   const labor = project.labor.trim() === "" ? "mão de obra vazia" : `mão de obra ${project.labor}%`
-  return `${mode} · ${time} no ${scope} · ${labor} · ${colorLabel(project.colors.length)}`
+  return { mode, time, scope, labor, colors: colorLabel(project.colors.length) }
 }
 
 export function ListaProjetos() {
@@ -84,6 +84,7 @@ export function ListaProjetos() {
           timeStyle: "short",
         })
         const confirming = pendingDelete === project.id
+        const parts = projectParts(project)
         return (
           <Card key={project.id} data-testid={`projeto-${project.id}`}>
             <CardHeader>
@@ -93,10 +94,15 @@ export function ListaProjetos() {
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3">
-              <p className="text-sm text-muted-foreground">{projectSummary(project)}</p>
+              <p className="text-sm text-muted-foreground">
+                {parts.mode}
+                {" · "}
+                <span className="figura">{parts.time}</span>
+                {` no ${parts.scope} · ${parts.labor} · ${parts.colors}`}
+              </p>
               {printer ? (
-                <p className="font-mono text-lg font-semibold" data-testid={`total-projeto-${project.id}`}>
-                  {total === null ? "Total incompleto" : formatBRL(total)}
+                <p className="text-lg font-semibold" data-testid={`total-projeto-${project.id}`}>
+                  <span className="figura">{total === null ? "Total incompleto" : formatBRL(total)}</span>
                   <span className="legenda ml-2 text-muted-foreground">lote, tarifa atual</span>
                 </p>
               ) : (

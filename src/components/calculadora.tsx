@@ -105,7 +105,7 @@ function ColorEditor({
   return (
     <div className="grid gap-3 rounded-lg border p-3" data-testid={`cor-${color.id}`}>
       <div className="flex items-end gap-3">
-        <div className="grid gap-1.5">
+        <div className="campo">
           <Label htmlFor={`${color.id}-hex`}>Cor</Label>
           <input
             id={`${color.id}-hex`}
@@ -117,7 +117,7 @@ function ColorEditor({
             data-testid={`cor-hex-${color.id}`}
           />
         </div>
-        <div className="grid flex-1 gap-1.5">
+        <div className="campo flex-1">
           <Label htmlFor={`${color.id}-nome`}>Nome</Label>
           <Input
             id={`${color.id}-nome`}
@@ -156,7 +156,7 @@ function ColorEditor({
         />
       </div>
       {price.status === "invalid" || grams.status === "invalid" ? (
-        <p className="text-xs text-destructive">Preço e peso precisam ser zero ou positivos.</p>
+        <p className="erro-campo">Preço e peso precisam ser zero ou positivos.</p>
       ) : null}
     </div>
   )
@@ -327,12 +327,12 @@ function CalculadoraEditor({
         <div className="pilha">
 
         {frases.ausente ? (
-          <p className="rounded-lg bg-muted/60 p-3 text-sm text-muted-foreground" data-testid="projeto-ausente">
+          <p className="lavagem p-3 text-sm text-muted-foreground" data-testid="projeto-ausente">
             {frases.ausente}
           </p>
         ) : null}
         {linkedPrinterMissing ? (
-          <p className="rounded-lg bg-muted/60 p-3 text-sm text-muted-foreground" data-testid="impressora-ausente">
+          <p className="lavagem p-3 text-sm text-muted-foreground" data-testid="impressora-ausente">
             A impressora gravada neste projeto foi removida. O cálculo usa a máquina marcada agora.
           </p>
         ) : null}
@@ -350,7 +350,7 @@ function CalculadoraEditor({
                 saveProject()
               }}
             >
-              <div className="grid gap-1.5">
+              <div className="campo">
                 <Label htmlFor="nome-projeto">Nome</Label>
                 <Input
                   id="nome-projeto"
@@ -365,9 +365,9 @@ function CalculadoraEditor({
                   data-testid="nome-projeto"
                   className="h-11"
                 />
-                {nameError ? <p className="text-xs text-destructive">{nameError}</p> : null}
+                {nameError ? <p className="erro-campo">{nameError}</p> : null}
               </div>
-              <div className="grid gap-1.5">
+              <div className="campo">
                 <Label htmlFor="impressora-ativa">Impressora</Label>
                 <select
                   id="impressora-ativa"
@@ -464,7 +464,7 @@ function CalculadoraEditor({
                 </Button>
               </div>
               {colors.length === 0 ? (
-                <p className="rounded-lg bg-muted/60 p-3 text-sm text-muted-foreground" data-testid="cores-vazio">
+                <p className="lavagem p-3 text-sm text-muted-foreground" data-testid="cores-vazio">
                   Nenhuma cor ainda. Sem filamento, o material fica em R$ 0,00.
                 </p>
               ) : (
@@ -530,12 +530,10 @@ function CalculadoraEditor({
               {result.colors.map((color) => (
                 <li key={color.id} className="flex items-center justify-between gap-3">
                   <span className="flex min-w-0 items-center gap-2">
-                    <span className="size-2.5 shrink-0 rounded-full" style={{ background: color.hex }} />
+                    <span className="amostra-cor size-2.5 shrink-0" style={{ background: color.hex }} />
                     <span className="truncate">{color.name.trim() || "Sem nome"}</span>
                   </span>
-                  <span className="font-mono text-xs">
-                    {color.invalid ? "inválida" : showMoney(color.material)}
-                  </span>
+                  <span className="figura">{color.invalid ? "inválida" : showMoney(color.material)}</span>
                 </li>
               ))}
             </ul>
@@ -544,7 +542,7 @@ function CalculadoraEditor({
           {notes.length > 0 ? (
             <ul className="grid gap-2 text-sm text-muted-foreground" data-testid="avisos">
               {notes.map((note) => (
-                <li key={note} className="rounded-lg bg-muted/60 p-2">
+                <li key={note} className="lavagem p-2">
                   {note}
                 </li>
               ))}
@@ -557,11 +555,11 @@ function CalculadoraEditor({
       <div className="barra-totais" aria-hidden="true">
         <div>
           <p className="legenda text-muted-foreground">Por peça</p>
-          <p className="font-mono text-sm font-semibold">{showMoney(result.piece.total)}</p>
+          <p className="figura">{showMoney(result.piece.total)}</p>
         </div>
         <div>
           <p className="legenda text-muted-foreground">Lote</p>
-          <p className="font-mono text-sm font-semibold">{showMoney(result.lot.total)}</p>
+          <p className="figura">{showMoney(result.lot.total)}</p>
         </div>
       </div>
     </main>
@@ -585,8 +583,8 @@ function ModeOption({
 }) {
   return (
     <label
-      className={`flex h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm ${
-        checked ? "border-primary bg-primary/10" : "border-border"
+      className={`modo-opcao flex h-11 cursor-pointer items-center gap-2 px-3 text-sm ${
+        checked ? "modo-marcado" : ""
       }`}
     >
       <input type="radio" name={name} value={value} checked={checked} onChange={onSelect} data-testid={testId} />
@@ -607,12 +605,12 @@ function TotalBlock({
   testPrefix: string
 }) {
   return (
-    <div className="rounded-lg bg-muted/60 p-3">
+    <div className="lavagem p-3">
       <p className="legenda text-muted-foreground">{label}</p>
-      <p className="font-mono text-xl font-semibold tracking-tight" data-testid={`total-${testPrefix}`}>
+      <p className="figura" data-testid={`total-${testPrefix}`}>
         {showMoney(money)}
       </p>
-      <p className="text-xs text-muted-foreground" data-testid={`tempo-${testPrefix}`}>
+      <p className="figura" data-testid={`tempo-${testPrefix}`}>
         {showTime(time)}
       </p>
     </div>
@@ -636,10 +634,10 @@ function CostRow({
   return (
     <tr className="border-t">
       <th className="py-2 text-left font-medium">{label}</th>
-      <td className="py-2 text-right font-mono" data-testid={`${testId}-peca`}>
+      <td className="figura py-2 text-right" data-testid={`${testId}-peca`}>
         {show(piece)}
       </td>
-      <td className="py-2 text-right font-mono" data-testid={`${testId}-lote`}>
+      <td className="figura py-2 text-right" data-testid={`${testId}-lote`}>
         {show(lot)}
       </td>
     </tr>

@@ -96,7 +96,7 @@ export function ConfiguracoesForm() {
           <CardDescription>Potência, tarifa, preço e vida útil desta máquina.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
-          <div className="grid gap-1.5 sm:col-span-2">
+          <div className="campo sm:col-span-2">
             <Label htmlFor="nome-impressora">Nome</Label>
             <Input
               id="nome-impressora"
