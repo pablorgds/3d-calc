@@ -14,9 +14,9 @@
 ## Handoff
 
 **Feature**: login
-**Where**: C1–C61 marked done. Contas and sessao live in `src/lib/banco.ts`; the cookie is read in pages, `acoes.ts` and `POST /sessao`.
+**Where**: C1–C61 done. Verification PASS, round 2, profile light, range `190e32c..b1dc690`.
 **In progress**: none
-**Next step**: verify, fresh Verifier over the login range, profile light
+**Next step**: none
 **Blockers**: none. Admin does not read other contas — Confirmed? y, AD-006
-**Uncommitted**: none after the login commit
+**Uncommitted**: none
 **Branch**: main
