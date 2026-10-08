@@ -20,9 +20,10 @@ import {
   type ColorDraft,
   type EntryMode,
 } from "@/lib/custo"
-import { setActivePrinter, usePrinterStore } from "@/lib/impressora"
+import { setActivePrinter, useLeitura, usePrinterStore } from "@/lib/impressora"
 import { activePrinterOf } from "@/lib/impressora-store"
-import { useProject, writeProject, type Project } from "@/lib/projetos"
+import { writeProject, type Project } from "@/lib/projetos"
+import { frasesCalculadora, vistaCarregamento } from "@/lib/vistas"
 
 const swatches = ["#78716c", "#57534e", "#a8a29e", "#44403c"]
 
@@ -166,15 +167,28 @@ function CalculadoraLoading() {
     <main className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-8 sm:px-6">
       <header className="space-y-2">
         <h1 className="font-heading text-2xl font-semibold tracking-tight">Calculadora</h1>
-        <p className="max-w-2xl text-sm leading-6 text-muted-foreground">Lendo este navegador…</p>
+        <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{vistaCarregamento("calculadora", "lendo").titulo}</p>
+      </header>
+    </main>
+  )
+}
+
+function CalculadoraErro() {
+  const vista = vistaCarregamento("calculadora", "erro")
+  return (
+    <main className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-8 sm:px-6">
+      <header className="space-y-2">
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">{vista.titulo}</h1>
       </header>
     </main>
   )
 }
 
 export function Calculadora({ projectId }: { projectId: string | null }) {
-  const project = useProject(projectId)
-  if (project === undefined) return <CalculadoraLoading />
+  const leitura = useLeitura()
+  if (leitura.status === "erro") return <CalculadoraErro />
+  if (leitura.status !== "pronto") return <CalculadoraLoading />
+  const project = projectId ? (leitura.projects.find((item) => item.id === projectId) ?? null) : null
   return (
     <CalculadoraEditor
       key={project?.id ?? (projectId ? `ausente-${projectId}` : "novo")}
@@ -287,6 +301,7 @@ function CalculadoraEditor({
 
   if (!printerStore || !printer || !result) return <CalculadoraLoading />
 
+  const frases = frasesCalculadora(missing ? "ausente" : projectId ? "gravado" : "novo")
   const linkedPrinterMissing =
     Boolean(projectId) &&
     !missing &&
@@ -306,13 +321,13 @@ function CalculadoraEditor({
           <h1 className="font-heading text-2xl font-semibold tracking-tight">Calculadora</h1>
           <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
             Um objeto pode levar várias cores na mesma impressão. Energia e depreciação vêm da impressora
-            marcada. Gravar o lote deixa o projeto neste navegador.
+            marcada. {frases.gravar}
           </p>
         </header>
 
-        {missing ? (
+        {frases.ausente ? (
           <p className="rounded-lg bg-muted/60 p-3 text-sm text-muted-foreground" data-testid="projeto-ausente">
-            Esse projeto não está neste navegador. Salvar cria um novo.
+            {frases.ausente}
           </p>
         ) : null}
         {linkedPrinterMissing ? (
@@ -324,11 +339,7 @@ function CalculadoraEditor({
         <Card>
           <CardHeader>
             <CardTitle>Projeto</CardTitle>
-            <CardDescription>
-              {projectId && !missing
-                ? "Gravado neste navegador. Salvar de novo atualiza este projeto."
-                : "Ainda não está na lista de Projetos."}
-            </CardDescription>
+            <CardDescription>{frases.descricao}</CardDescription>
           </CardHeader>
           <CardContent>
             <form

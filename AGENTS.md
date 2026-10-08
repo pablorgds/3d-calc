@@ -1,6 +1,6 @@
 # Custo por chapa
 
-Precificação de impressão 3D neste navegador. Sem servidor e sem conta. O README descreve o que o app faz; os arquivos em `docs/` descrevem como o código funciona.
+Precificação de impressão 3D neste computador. Sem conta. O README descreve o que o app faz; os arquivos em `docs/` descrevem como o código funciona.
 
 ## Onde ler
 
@@ -11,7 +11,7 @@ Precificação de impressão 3D neste navegador. Sem servidor e sem conta. O REA
 ## Ao alterar o código
 
 - Texto da interface em português, no tom do README: concreto, sobre peça, lote, impressora e tarifa.
-- A conta pura fica em `src/lib/custo.ts` e em `src/lib/*-store.ts`, sem React e sem `window`. O navegador (`localStorage`, `useSyncExternalStore`) fica em `src/lib/impressora.ts` e `src/lib/projetos.ts`.
+- A conta pura fica em `src/lib/custo.ts` e em `src/lib/*-store.ts`, sem React e sem `window`. `impressora.ts` e `projetos.ts` leem e gravam pelo servidor. `custo.ts`, `impressora-store.ts` e `projetos-store.ts` continuam sem o driver do banco.
 - Páginas em `src/app` são server components finos. Interação fica em `src/components`.
 - Mudança na conta ou no JSON gravado precisa de teste em `src/lib/*.test.ts`. Esses arquivos estão fora do `tsconfig` e rodam com `node --experimental-strip-types --test src/lib/*.test.ts`.
 - Antes de usar uma API do Next, leia o guia em `node_modules/next/dist/docs/`. O bloco abaixo é reescrito pelo `next dev`; deixe-o como está.

@@ -1,13 +1,13 @@
-# Dados neste navegador
+# Dados no banco
 
-Não há API nem banco. Dois registros no `localStorage`, cada um com uma função pura de parse e serialize e um adaptador que grava e avisa a tela.
+Impressoras e projetos ficam no Postgres do volume `custo-chapa-pg`. Não há conta. O navegador ainda guarda as chaves `custo-chapa-impressora` e `custo-chapa-projetos`; a primeira leitura copia as duas para o Postgres só enquanto o banco ainda é a semente.
 
 | Chave | Arquivo puro | Adaptador |
 | --- | --- | --- |
 | `custo-chapa-impressora` | `src/lib/impressora-store.ts` | `src/lib/impressora.ts` |
 | `custo-chapa-projetos` | `src/lib/projetos-store.ts` | `src/lib/projetos.ts` |
 
-O adaptador compara o texto cru com um cache, grava com `JSON.stringify` e dispara um `Event` no `window` com o mesmo nome da chave. `useSyncExternalStore` escuta esse evento e também `storage`. No servidor o snapshot é `null`, então a primeira pintura do cliente mostra “Lendo este navegador” em vez de divergir da hidratação.
+`impressora.ts` e `projetos.ts` entregam a leitura e a gravação ao processo do app, que persiste no Postgres. A primeira pintura mostra “Lendo impressoras e projetos.” até essa leitura voltar.
 
 Números de impressora e de projeto ficam em string, do jeito que foram digitados. A conta só acontece na leitura.
 
@@ -62,6 +62,6 @@ Versão atual do JSON: `1`.
 }
 ```
 
-`mode` é `"peca"` ou `"lote"`. O projeto guarda `printerId`, não a tarifa. Abrir `/?projeto=<id>` marca a impressora do projeto. Se essa máquina foi removida, o cálculo usa a marcada agora e a tela avisa. Projeto ausente nesse navegador também avisa; salvar cria um id novo.
+`mode` é `"peca"` ou `"lote"`. O projeto guarda `printerId`, não a tarifa. Abrir `/?projeto=<id>` marca a impressora do projeto. Se essa máquina foi removida, o cálculo usa a marcada agora e a tela avisa. Projeto ausente no banco também avisa; salvar cria um id novo.
 
 A lista ordena por `updatedAt` decrescente e, no empate, pelo nome em pt-BR. Ids repetidos na leitura ficam só com a primeira ocorrência. JSON inválido ou item sem `id` e `mode` some da lista. Duplicar copia o lote, inclusive as cores, com o nome acrescido de “ (cópia)”.

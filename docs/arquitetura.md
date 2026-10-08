@@ -21,10 +21,10 @@ A calculadora lê `?projeto=` no server component e passa o id adiante. A `key` 
 ```
 src/app          rotas e metadata
 src/components   telas com estado
-src/lib          conta, parse do JSON e acesso ao navegador
+src/lib          conta, parse do JSON e adaptadores do banco
 ```
 
-`custo.ts` não importa React. `impressora-store.ts` e `projetos-store.ts` também não: recebem o estado e devolvem o próximo. Quem lê e grava `localStorage` são `impressora.ts` e `projetos.ts`.
+`custo.ts` não importa React. `impressora.ts` e `projetos.ts` leem e gravam pelo servidor. `custo.ts`, `impressora-store.ts` e `projetos-store.ts` continuam sem o driver do banco.
 
 Fluxo da calculadora: rascunho na tela → impressora marcada → `draftToCalcInput` → `calculate` → peça e lote. Salvar chama `writeProject` com o rascunho em texto e o `printerId` atual. A lista de projetos refaz `calculate` na hora de mostrar o total do lote.
 

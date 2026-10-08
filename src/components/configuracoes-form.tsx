@@ -5,22 +5,37 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { NumberField } from "@/components/number-field"
-import { addPrinter, removePrinter, setActivePrinter, updatePrinterById, usePrinterStore } from "@/lib/impressora"
+import { addPrinter, removePrinter, setActivePrinter, updatePrinterById, useLeitura } from "@/lib/impressora"
 import { activePrinterOf } from "@/lib/impressora-store"
+import { vistaCarregamento } from "@/lib/vistas"
 
 export function ConfiguracoesForm() {
-  const store = usePrinterStore()
+  const leitura = useLeitura()
 
-  if (!store) {
+  if (leitura.status === "erro") {
+    const vista = vistaCarregamento("configuracoes", "erro")
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Lendo este navegador</CardTitle>
-          <CardDescription>As impressoras ficam só aqui, sem conta.</CardDescription>
+          <CardTitle>{vista.titulo}</CardTitle>
         </CardHeader>
       </Card>
     )
   }
+
+  if (leitura.status !== "pronto") {
+    const vista = vistaCarregamento("configuracoes", "lendo")
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{vista.titulo}</CardTitle>
+          {vista.descricao ? <CardDescription>{vista.descricao}</CardDescription> : null}
+        </CardHeader>
+      </Card>
+    )
+  }
+
+  const store = leitura.printers
 
   const active = activePrinterOf(store)
 

@@ -6,8 +6,9 @@ import { buttonVariants } from "@/components/ui/button"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { calculate, combineTime, draftToCalcInput, formatBRL, formatDuration } from "@/lib/custo"
-import { usePrinterStore } from "@/lib/impressora"
-import { deleteProject, duplicateProject, useProjects, type Project } from "@/lib/projetos"
+import { useLeitura } from "@/lib/impressora"
+import { deleteProject, duplicateProject, type Project } from "@/lib/projetos"
+import { vistaCarregamento } from "@/lib/vistas"
 import { cn } from "cn"
 
 function colorLabel(count: number) {
@@ -26,20 +27,34 @@ function projectSummary(project: Project) {
 }
 
 export function ListaProjetos() {
-  const projects = useProjects()
-  const store = usePrinterStore()
+  const leitura = useLeitura()
   const [pendingDelete, setPendingDelete] = useState<string | null>(null)
 
-  if (!projects || !store) {
+  if (leitura.status === "erro") {
+    const vista = vistaCarregamento("projetos", "erro")
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Lendo este navegador</CardTitle>
-          <CardDescription>Os projetos ficam só aqui, sem conta.</CardDescription>
+          <CardTitle>{vista.titulo}</CardTitle>
         </CardHeader>
       </Card>
     )
   }
+
+  if (leitura.status !== "pronto") {
+    const vista = vistaCarregamento("projetos", "lendo")
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{vista.titulo}</CardTitle>
+          {vista.descricao ? <CardDescription>{vista.descricao}</CardDescription> : null}
+        </CardHeader>
+      </Card>
+    )
+  }
+
+  const projects = leitura.projects
+  const store = leitura.printers
 
   if (projects.length === 0) {
     return (

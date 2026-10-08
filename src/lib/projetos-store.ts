@@ -54,7 +54,7 @@ export function parseProject(value: unknown): Project | null {
   }
 }
 
-function sortProjects(projects: Project[]) {
+export function sortProjects(projects: Project[]) {
   return [...projects].sort((a, b) => b.updatedAt - a.updatedAt || a.name.localeCompare(b.name, "pt-BR"))
 }
 
