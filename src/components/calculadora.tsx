@@ -255,9 +255,10 @@ function CalculadoraEditor({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    if (!initial?.printerId) return
-    setActivePrinter(initial.printerId)
-  }, [initial])
+    const printerId = initial?.printerId
+    if (!printerId) return
+    setActivePrinter(printerId)
+  }, [initial?.printerId])
 
   function forgetIssue(id: string) {
     setFieldErrors((current) => {
