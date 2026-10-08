@@ -294,3 +294,6 @@ Status: done
 
 - S1 = 11.3k (45142 bytes / 4). S2 soma 8851 bytes novos e o único acumulado vai a 53993 bytes, ~13.5k. S3 e S4 não acrescentam arquivo. 13.5k fica abaixo do orçamento de 150k — one builder
 - Mechanism: one builder
+- **Boundary:** C1–C58 closed at `7c40d7d`
+- **Settled mid-build:** none
+- **Abandoned:** none

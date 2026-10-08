@@ -10,10 +10,10 @@
 
 ## Handoff
 
-**Feature**: ambiente-banco
-**Where**: plan written, checks not started
+**Feature**: modelo-suico
+**Where**: C1–C58 closed at `7c40d7d`
 **In progress**: none
-**Next step**: human review of `.specs/features/ambiente-banco/plan.md`. Do not write checks or code until that review accepts the plan.
+**Next step**: independent verification of `.specs/features/modelo-suico` over `14f11ce..HEAD`
 **Blockers**: none
-**Uncommitted**: `.specs/STATE.md`, `.specs/features/ambiente-banco/plan.md`
+**Uncommitted**: none of this feature
 **Branch**: main
