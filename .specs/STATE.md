@@ -12,9 +12,9 @@
 ## Handoff
 
 **Feature**: mesas
-**Where**: C1–C47 built. Proofs green. Awaiting the Verifier.
+**Where**: C1–C47 verified PASS at `d6a36c0`, profile light. Gate `validate_verification.py` exited 0.
 **In progress**: none
-**Next step**: Verifier over the feature range, profile light
+**Next step**: none
 **Blockers**: none
-**Uncommitted**: the mesa build, until the feature commit lands
+**Uncommitted**: `.specs/features/mesas/verification.md` until the verification commit lands
 **Branch**: main
