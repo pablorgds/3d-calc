@@ -26,10 +26,6 @@ node --experimental-strip-types --test src/lib/*.test.ts
 
 O [AGENTS.md](AGENTS.md) é o mapa para quem altera o código. O detalhe está em [docs/custo.md](docs/custo.md), [docs/dados.md](docs/dados.md) e [docs/arquitetura.md](docs/arquitetura.md).
 
-## Fora desta versão
-
-Login, orçamento em PDF ou texto, refugo, impressão falha, purge, mão de obra por hora e tarifa diferente por projeto.
-
 ## Backlog
 
-Ideias para depois, ainda sem plano: [`.specs/BACKLOG.md`](.specs/BACKLOG.md). A primeira é um estoque de filamentos (cor, preço pago e marca) cujo R$/kg entra na calculadora ao adicionar a cor.
+Ideias para depois, ainda sem plano: [`.specs/BACKLOG.md`](.specs/BACKLOG.md). Estoque de filamentos, cliente do projeto, login, orçamento em PDF ou texto, refugo, impressão falha, purge, mão de obra por hora e tarifa diferente por projeto.

@@ -16,9 +16,9 @@ Precificação de impressão 3D neste computador. Sem conta. O README descreve o
 - Mudança na conta ou no JSON gravado precisa de teste em `src/lib/*.test.ts`. Esses arquivos estão fora do `tsconfig` e rodam com `node --experimental-strip-types --test src/lib/*.test.ts`.
 - Antes de usar uma API do Next, leia o guia em `node_modules/next/dist/docs/`. O bloco abaixo é reescrito pelo `next dev`; deixe-o como está.
 
-## Fora desta versão
+## Backlog
 
-Não acrescente, a menos que o pedido seja explícito: login, orçamento em PDF ou texto, refugo, impressão falha, purge, mão de obra por hora e tarifa diferente por projeto.
+Ideias anotadas em [`.specs/BACKLOG.md`](.specs/BACKLOG.md), ainda sem plano. Não implemente um item de lá a menos que o pedido nomeie esse item.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
