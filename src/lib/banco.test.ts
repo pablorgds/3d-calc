@@ -10,7 +10,7 @@ import { calculate, draftToCalcInput, type MesaDraft } from "./custo.ts"
 import { serializePrinterStore, type PrinterStore } from "./impressora-store.ts"
 import type { Project } from "./projetos-store.ts"
 
-const { HEX_MESA_NOVA, idAoSalvar, serializeProjects } = await import("./projetos-store.ts")
+const { idAoSalvar, serializeProjects } = await import("./projetos-store.ts")
 const { abrirBanco, abrirBancoDoAmbiente } = await import("./banco.ts")
 
 type Resultado =
@@ -656,7 +656,7 @@ $$`)
     assert.equal(salvo?.mesas?.[1]?.name, "")
     assert.equal(salvo?.mesas?.[1]?.price, "")
     assert.equal(salvo?.mesas?.[1]?.grams, "")
-    assert.equal(salvo?.mesas?.[1]?.hex, HEX_MESA_NOVA)
+    assert.equal(salvo?.mesas?.[1]?.hex, "#57534e")
     assert.equal(salvo?.colors.length, 0)
     assert.equal(salvo?.hours, "")
     assert.equal(salvo?.minutes, "")
