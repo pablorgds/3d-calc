@@ -1,4 +1,4 @@
-import { apagarProjetoNoBanco, duplicarProjetoNoBanco, gravarProjetoNoBanco } from "./acoes"
+import { adicionarMesaNoBanco, apagarProjetoNoBanco, duplicarProjetoNoBanco, gravarProjetoNoBanco, removerMesaNoBanco } from "./acoes"
 import { PROJECTS_STORAGE_KEY } from "./chaves"
 import { aplicarResultado } from "./estado"
 import { useLeitura } from "./impressora"
@@ -13,9 +13,23 @@ export function useProjects(): Project[] | null {
   return leitura.projects
 }
 
-export function writeProject(project: Project) {
-  void gravarProjetoNoBanco(project).then((resultado) => {
+export function writeProject(project: Project & { expectedUpdatedAt?: number }) {
+  void gravarProjetoNoBanco({ ...project, updatedAt: Date.now() }).then((resultado) => {
     if (resultado.status !== "rejeitado") aplicarResultado(resultado)
+  })
+}
+
+export function addMesa(id: string, mesaId: string, expectedUpdatedAt?: number) {
+  return adicionarMesaNoBanco(id, mesaId, expectedUpdatedAt).then((resultado) => {
+    if (resultado.status === "ok" || resultado.status === "erro") aplicarResultado(resultado)
+    return resultado
+  })
+}
+
+export function removeMesa(id: string, mesaId: string, expectedUpdatedAt?: number) {
+  return removerMesaNoBanco(id, mesaId, expectedUpdatedAt).then((resultado) => {
+    if (resultado.status === "ok" || resultado.status === "erro") aplicarResultado(resultado)
+    return resultado
   })
 }
 

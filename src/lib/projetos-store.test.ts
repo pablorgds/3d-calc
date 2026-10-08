@@ -1,6 +1,9 @@
+import "./resolver-ts.ts"
 import assert from "node:assert/strict"
 import test from "node:test"
-import { copyProject, parseProjects, removeProject, serializeProjects, upsertProject, type Project } from "./projetos-store.ts"
+import type { Project } from "./projetos-store.ts"
+
+const { copyProject, parseProjects, removeProject, serializeProjects, upsertProject } = await import("./projetos-store.ts")
 
 function project(overrides: Partial<Project> = {}): Project {
   return {
@@ -15,6 +18,7 @@ function project(overrides: Partial<Project> = {}): Project {
     colorMode: "unica",
     grams: "40",
     colors: [{ id: "c1", name: "PLA preto", hex: "#111111", price: "90", grams: "40" }],
+    mesas: [],
     updatedAt: 10,
     ...overrides,
   }

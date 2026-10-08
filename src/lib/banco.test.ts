@@ -6,9 +6,11 @@ import path from "node:path"
 import test from "node:test"
 import { promisify } from "node:util"
 import { Client } from "pg"
+import { calculate, draftToCalcInput, type MesaDraft } from "./custo.ts"
 import { serializePrinterStore, type PrinterStore } from "./impressora-store.ts"
-import { serializeProjects, type Project } from "./projetos-store.ts"
+import type { Project } from "./projetos-store.ts"
 
+const { HEX_MESA_NOVA, idAoSalvar, serializeProjects } = await import("./projetos-store.ts")
 const { abrirBanco, abrirBancoDoAmbiente } = await import("./banco.ts")
 
 type Resultado =
@@ -34,6 +36,7 @@ function projeto(overrides: Partial<Project> = {}): Project {
     colorMode: "unica",
     grams: "40",
     colors: [{ id: "c1", name: "PLA preto", hex: "#111111", price: "90", grams: "40" }],
+    mesas: [],
     updatedAt: 10,
     ...overrides,
   }
@@ -99,8 +102,9 @@ test.describe("banco", { concurrency: 1 }, () => {
   }, { timeout: 180_000 })
 
   test.beforeEach(async () => {
-    await sql("TRUNCATE impressora_ativa, cor, projeto, impressora")
+    await sql("TRUNCATE impressora_ativa, cor, mesa, projeto, impressora")
     await sql("DROP TRIGGER IF EXISTS rejeita_falha_copia ON projeto")
+    await sql("DROP TRIGGER IF EXISTS rejeita_mesa ON mesa")
   })
 
   test.after(async () => {
@@ -533,5 +537,586 @@ $$`)
       if (anterior === undefined) delete process.env.DATABASE_URL
       else process.env.DATABASE_URL = anterior
     }
+  })
+
+  const mil = { watts: "1000", energyPrice: "1", printerPrice: "1000", lifeHours: "1000" }
+  const cem = { watts: "100", energyPrice: "1", printerPrice: "1000", lifeHours: "1000" }
+
+  function mesa(overrides: Partial<MesaDraft> = {}): MesaDraft {
+    return { id: "m1", hours: "1", minutes: "0", name: "", hex: "#111111", price: "0", grams: "0", ...overrides }
+  }
+
+  async function usarImpressora(printer: { watts: string; energyPrice: string; printerPrice: string; lifeHours: string }) {
+    ok(await abrirBanco(url).ler())
+    ok(
+      await abrirBanco(url).atualizarImpressora("k2-pro", {
+        watts: printer.watts,
+        energyPrice: printer.energyPrice,
+        printerPrice: printer.printerPrice,
+        lifeHours: printer.lifeHours,
+      })
+    )
+  }
+
+  function perto(atual: number | null, esperado: number) {
+    assert.ok(atual !== null && Math.abs(atual - esperado) < 1e-9, `${atual} ~ ${esperado}`)
+  }
+
+  function precos(project: Project, printer: { watts: string; energyPrice: string; printerPrice: string; lifeHours: string }) {
+    const result = calculate(draftToCalcInput(project, printer))
+    return { piece: result.piece.total, lot: result.lot.total }
+  }
+
+  async function contagem(tabela: string, projetoId?: string) {
+    const filtro = projetoId ? " WHERE projeto_id = $1" : ""
+    const linhas = await sql<{ n: number }>(`SELECT count(*)::int AS n FROM ${tabela}${filtro}`, projetoId ? [projetoId] : [])
+    return Number(linhas.rows[0]?.n)
+  }
+
+  test("abre mesas por posicao", async () => {
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({
+          copies: "1",
+          hours: "",
+          minutes: "",
+          grams: "",
+          colors: [],
+          mesas: [
+            mesa({ id: "a", hours: "1", minutes: "0", name: "PLA preto", hex: "#111111", price: "100", grams: "10" }),
+            mesa({ id: "b", hours: "2", minutes: "15", name: "PETG", hex: "#222222", price: "80", grams: "20" }),
+          ],
+        })
+      )
+    )
+    const lido = ok(await abrirBanco(url).ler())
+    const mesas = lido.projects[0]?.mesas ?? []
+    assert.equal(mesas[0]?.name, "PLA preto")
+    assert.equal(mesas[1]?.name, "PETG")
+    assert.equal(mesas[0]?.hours, "1")
+    assert.equal(mesas[0]?.minutes, "0")
+    assert.equal(mesas[0]?.hex, "#111111")
+    assert.equal(mesas[0]?.price, "100")
+    assert.equal(mesas[0]?.grams, "10")
+    assert.equal(mesas[1]?.hours, "2")
+    assert.equal(mesas[1]?.minutes, "15")
+    assert.equal(mesas[1]?.hex, "#222222")
+    assert.equal(mesas[1]?.price, "80")
+    assert.equal(mesas[1]?.grams, "20")
+  })
+
+  test("varias cores nao grava mesa", async () => {
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({
+          hours: "1",
+          minutes: "0",
+          colorMode: "multicolor",
+          grams: "",
+          colors: [
+            { id: "c1", name: "PLA", hex: "#111111", price: "100", grams: "10" },
+            { id: "c2", name: "PETG", hex: "#222222", price: "80", grams: "20" },
+          ],
+        })
+      )
+    )
+    const resultado = await abrirBanco(url).adicionarMesa("p1", "nova")
+    assert.equal(resultado.status, "recusado")
+    const lido = ok(await abrirBanco(url).ler())
+    assert.equal(lido.projects[0]?.hours, "1")
+    assert.equal(await contagem("cor", "p1"), 2)
+    assert.equal(await contagem("mesa", "p1"), 0)
+  })
+
+  test("primeira mesa e a mesa vazia", async () => {
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({
+          mode: "peca",
+          copies: "1",
+          hours: "1",
+          minutes: "0",
+          grams: "10",
+          colorMode: "unica",
+          colors: [{ id: "c1", name: "PLA preto", hex: "#111111", price: "100", grams: "10" }],
+        })
+      )
+    )
+    ok(await abrirBanco(url).adicionarMesa("p1", "vazia"))
+    const lido = ok(await abrirBanco(url).ler())
+    const salvo = lido.projects[0]
+    assert.equal(salvo?.mesas?.[0]?.hours, "1")
+    assert.equal(salvo?.mesas?.[0]?.minutes, "0")
+    assert.equal(salvo?.mesas?.[0]?.grams, "10")
+    assert.equal(salvo?.mesas?.[0]?.name, "PLA preto")
+    assert.equal(salvo?.mesas?.[0]?.hex, "#111111")
+    assert.equal(salvo?.mesas?.[0]?.price, "100")
+    assert.equal(salvo?.mesas?.[1]?.hours, "")
+    assert.equal(salvo?.mesas?.[1]?.minutes, "")
+    assert.equal(salvo?.mesas?.[1]?.name, "")
+    assert.equal(salvo?.mesas?.[1]?.price, "")
+    assert.equal(salvo?.mesas?.[1]?.grams, "")
+    assert.equal(salvo?.mesas?.[1]?.hex, HEX_MESA_NOVA)
+    assert.equal(salvo?.colors.length, 0)
+    assert.equal(salvo?.hours, "")
+    assert.equal(salvo?.minutes, "")
+    assert.equal(salvo?.grams, "")
+  })
+
+  test("volta a peca 2.52", async () => {
+    await usarImpressora(cem)
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({
+          mode: "peca",
+          copies: "1",
+          hours: "1",
+          minutes: "0",
+          grams: "10",
+          labor: "20",
+          colors: [{ id: "c1", name: "PLA", hex: "#111111", price: "100", grams: "10" }],
+        })
+      )
+    )
+    ok(await abrirBanco(url).adicionarMesa("p1", "vazia"))
+    ok(await abrirBanco(url).removerMesa("p1", "vazia"))
+    const lido = ok(await abrirBanco(url).ler())
+    const salvo = lido.projects[0]
+    assert.ok(salvo)
+    assert.equal(salvo.mode, "peca")
+    assert.equal(salvo.hours, "1")
+    assert.equal(salvo.minutes, "0")
+    assert.equal(salvo.grams, "10")
+    assert.equal(salvo.colors.length, 1)
+    assert.equal(salvo.mesas?.length, 0)
+    const valores = precos(salvo, cem)
+    perto(valores.piece, 2.52)
+    perto(valores.lot, 2.52)
+  })
+
+  test("remove mesa aberta e mantem as fechadas", async () => {
+    await usarImpressora(mil)
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({
+          copies: "1",
+          labor: "0",
+          hours: "",
+          minutes: "",
+          grams: "",
+          colors: [],
+          mesas: [mesa({ id: "a" }), mesa({ id: "b" }), mesa({ id: "aberta", price: "" })],
+        })
+      )
+    )
+    ok(await abrirBanco(url).removerMesa("p1", "aberta"))
+    const lido = ok(await abrirBanco(url).ler())
+    const salvo = lido.projects[0]
+    assert.ok(salvo)
+    assert.equal(salvo.mesas?.length, 2)
+    const valores = precos(salvo, mil)
+    assert.equal(valores.piece, 4)
+    assert.equal(valores.lot, 4)
+  })
+
+  test("lote vira mesa com copias 4", async () => {
+    await usarImpressora(cem)
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({
+          mode: "lote",
+          copies: "4",
+          hours: "1",
+          minutes: "0",
+          grams: "10",
+          labor: "20",
+          colors: [{ id: "c1", name: "PLA", hex: "#111111", price: "100", grams: "10" }],
+        })
+      )
+    )
+    ok(await abrirBanco(url).adicionarMesa("p1", "vazia"))
+    ok(await abrirBanco(url).removerMesa("p1", "vazia"))
+    const lido = ok(await abrirBanco(url).ler())
+    const salvo = lido.projects[0]
+    assert.ok(salvo)
+    assert.equal(salvo.mesas?.length, 1)
+    assert.equal(salvo.copies, "4")
+    const valores = precos(salvo, cem)
+    perto(valores.piece, 2.52)
+    perto(valores.lot, 10.08)
+  })
+
+  test("remove mesa fechada e recalcula", async () => {
+    await usarImpressora(mil)
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({
+          copies: "1",
+          labor: "0",
+          hours: "",
+          minutes: "",
+          grams: "",
+          colors: [],
+          mesas: [mesa({ id: "a" }), mesa({ id: "b" })],
+        })
+      )
+    )
+    ok(await abrirBanco(url).removerMesa("p1", "b"))
+    const lido = ok(await abrirBanco(url).ler())
+    const salvo = lido.projects[0]
+    assert.ok(salvo)
+    const valores = precos(salvo, mil)
+    assert.equal(valores.piece, 2)
+    assert.equal(valores.lot, 2)
+  })
+
+  test("uma mesa com copias 1 vira impressao", async () => {
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({
+          copies: "1",
+          hours: "",
+          minutes: "",
+          grams: "",
+          colors: [],
+          mesas: [
+            mesa({ id: "fica", hours: "1", minutes: "30", grams: "10", name: "PLA preto", hex: "#111111", price: "100" }),
+            mesa({ id: "sai" }),
+          ],
+        })
+      )
+    )
+    ok(await abrirBanco(url).removerMesa("p1", "sai"))
+    const lido = ok(await abrirBanco(url).ler())
+    const salvo = lido.projects[0]
+    assert.equal(salvo?.mode, "peca")
+    assert.equal(salvo?.colorMode, "unica")
+    assert.equal(salvo?.hours, "1")
+    assert.equal(salvo?.minutes, "30")
+    assert.equal(salvo?.grams, "10")
+    assert.equal(salvo?.colors.length, 1)
+    assert.equal(salvo?.colors[0]?.name, "PLA preto")
+    assert.equal(salvo?.colors[0]?.hex, "#111111")
+    assert.equal(salvo?.colors[0]?.price, "100")
+    assert.equal(salvo?.mesas?.length, 0)
+    assert.equal(await contagem("mesa", "p1"), 0)
+  })
+
+  test("gravar mesas limpa cor", async () => {
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({
+          mode: "lote",
+          hours: "9",
+          minutes: "9",
+          grams: "9",
+          colorMode: "multicolor",
+          colors: [
+            { id: "c1", name: "A", hex: "#111111", price: "1", grams: "1" },
+            { id: "c2", name: "B", hex: "#222222", price: "2", grams: "2" },
+          ],
+          mesas: [mesa({ id: "a" }), mesa({ id: "b" })],
+        })
+      )
+    )
+    const lido = ok(await abrirBanco(url).ler())
+    const salvo = lido.projects[0]
+    assert.equal(salvo?.hours, "")
+    assert.equal(salvo?.minutes, "")
+    assert.equal(salvo?.grams, "")
+    assert.equal(salvo?.mode, "peca")
+    assert.equal(salvo?.colorMode, "unica")
+    assert.equal(await contagem("cor", "p1"), 0)
+    assert.equal(await contagem("mesa", "p1"), 2)
+  })
+
+  test("falha ao gravar mesas volta o projeto", async () => {
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({
+          hours: "1",
+          minutes: "0",
+          colors: [{ id: "c1", name: "PLA", hex: "#111111", price: "100", grams: "10" }],
+        })
+      )
+    )
+    await sql(`CREATE OR REPLACE FUNCTION rejeita_mesa() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'falha mesa';
+END;
+$$`)
+    await sql(
+      `CREATE TRIGGER rejeita_mesa BEFORE INSERT ON mesa FOR EACH ROW EXECUTE FUNCTION rejeita_mesa()`
+    )
+    await assert.rejects(abrirBanco(url).gravarProjeto(projeto({ hours: "", minutes: "", grams: "", colors: [], mesas: [mesa()] })))
+    const lido = ok(await abrirBanco(url).ler())
+    assert.equal(lido.projects[0]?.hours, "1")
+    assert.equal(lido.projects[0]?.minutes, "0")
+    assert.equal(await contagem("cor", "p1"), 1)
+    assert.equal(await contagem("mesa", "p1"), 0)
+  })
+
+  test("gravacao atrasada nao commita", async () => {
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({
+          updatedAt: 20,
+          hours: "",
+          minutes: "",
+          grams: "",
+          colors: [],
+          mesas: [mesa({ id: "a" }), mesa({ id: "b" })],
+        })
+      )
+    )
+    ok(
+      await abrirBanco(url).gravarProjeto({
+        ...projeto({
+          updatedAt: 30,
+          colorMode: "multicolor",
+          colors: [
+            { id: "c1", name: "A", hex: "#111111", price: "1", grams: "1" },
+            { id: "c2", name: "B", hex: "#222222", price: "2", grams: "2" },
+          ],
+          mesas: [],
+        }),
+        expectedUpdatedAt: 10,
+      })
+    )
+    let lido = ok(await abrirBanco(url).ler())
+    assert.equal(await contagem("mesa", "p1"), 2)
+    assert.equal(await contagem("cor", "p1"), 0)
+    assert.equal(lido.projects[0]?.updatedAt, 20)
+
+    ok(await abrirBanco(url).apagarProjeto("p1"))
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({
+          updatedAt: 20,
+          colorMode: "multicolor",
+          colors: [
+            { id: "c1", name: "A", hex: "#111111", price: "1", grams: "1" },
+            { id: "c2", name: "B", hex: "#222222", price: "2", grams: "2" },
+          ],
+        })
+      )
+    )
+    ok(
+      await abrirBanco(url).gravarProjeto({
+        ...projeto({
+          updatedAt: 30,
+          hours: "",
+          minutes: "",
+          grams: "",
+          colors: [],
+          mesas: [mesa({ id: "a" }), mesa({ id: "b" })],
+        }),
+        expectedUpdatedAt: 10,
+      })
+    )
+    lido = ok(await abrirBanco(url).ler())
+    assert.equal(await contagem("cor", "p1"), 2)
+    assert.equal(await contagem("mesa", "p1"), 0)
+    assert.equal(lido.projects[0]?.updatedAt, 20)
+  })
+
+  test("duplicar projeto de mesas", async () => {
+    await usarImpressora(mil)
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({
+          name: "Suporte",
+          copies: "2",
+          labor: "0",
+          hours: "",
+          minutes: "",
+          grams: "",
+          colors: [],
+          mesas: [mesa({ id: "a" }), mesa({ id: "b" })],
+        })
+      )
+    )
+    ok(await abrirBanco(url).duplicarProjeto("p1", "p2", 99))
+    const lido = ok(await abrirBanco(url).ler())
+    const copia = lido.projects.find((item) => item.id === "p2")
+    assert.ok(copia)
+    assert.equal(copia.name, "Suporte (cópia)")
+    assert.notEqual(copia.id, "p1")
+    const valores = precos(copia, mil)
+    assert.equal(valores.piece, 4)
+    assert.equal(valores.lot, 8)
+  })
+
+  test("apagar projeto apaga mesas", async () => {
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({ id: "a", hours: "", minutes: "", grams: "", colors: [], mesas: [mesa({ id: "a1" }), mesa({ id: "a2" })] })
+      )
+    )
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({ id: "b", hours: "", minutes: "", grams: "", colors: [], mesas: [mesa({ id: "b1" })] })
+      )
+    )
+    ok(await abrirBanco(url).apagarProjeto("a"))
+    assert.equal(await contagem("mesa", "a"), 0)
+    assert.equal(await contagem("mesa", "b"), 1)
+  })
+
+  test("tabela mesa nasce vazia", async () => {
+    ok(await abrirBanco(url).gravarProjeto(projeto({ hours: "2", minutes: "15" })))
+    await sql("DROP TABLE mesa")
+    const lido = ok(await abrirBanco(url).ler())
+    assert.equal(lido.projects[0]?.hours, "2")
+    assert.equal(lido.projects[0]?.minutes, "15")
+    assert.equal(lido.projects[0]?.colors.length, 1)
+    assert.equal(await contagem("mesa"), 0)
+  })
+
+  test("projeto ausente nao ganha mesa", async () => {
+    ok(await abrirBanco(url).ler())
+    ok(await abrirBanco(url).adicionarMesa("ausente", "nova"))
+    const projetos = await sql<{ n: number }>("SELECT count(*)::int AS n FROM projeto WHERE id = $1", ["ausente"])
+    assert.equal(Number(projetos.rows[0]?.n), 0)
+    assert.equal(await contagem("mesa"), 0)
+  })
+
+  test("salvar impressao ausente cria id", async () => {
+    const id = idAoSalvar("ausente", true, "criado")
+    assert.notEqual(id, "ausente")
+    ok(await abrirBanco(url).gravarProjeto(projeto({ id, mesas: [] })))
+    const lido = ok(await abrirBanco(url).ler())
+    assert.equal(lido.projects.some((item) => item.id === "ausente"), false)
+    assert.equal(lido.projects.some((item) => item.id === id), true)
+    assert.equal(await contagem("mesa", id), 0)
+    assert.match(fs.readFileSync(path.join(root, "src/components/calculadora.tsx"), "utf8"), /idAoSalvar/)
+  })
+
+  test("id de mesa unico no projeto", async () => {
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({
+          copies: "2",
+          hours: "",
+          minutes: "",
+          grams: "",
+          colors: [],
+          mesas: [mesa({ id: "placa", hours: "1" }), mesa({ id: "placa", hours: "2" })],
+        })
+      )
+    )
+    const lido = ok(await abrirBanco(url).ler())
+    assert.equal(lido.projects[0]?.mesas?.length, 1)
+    assert.equal(lido.projects[0]?.mesas?.[0]?.hours, "1")
+  })
+
+  test("mesmo id de mesa em dois projetos", async () => {
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({ id: "a", hours: "", minutes: "", grams: "", colors: [], mesas: [mesa({ id: "placa", hours: "1" })] })
+      )
+    )
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({ id: "b", hours: "", minutes: "", grams: "", colors: [], mesas: [mesa({ id: "placa", hours: "2" })] })
+      )
+    )
+    assert.equal(await contagem("mesa", "a"), 1)
+    assert.equal(await contagem("mesa", "b"), 1)
+    const lido = ok(await abrirBanco(url).ler())
+    assert.equal(lido.projects.find((item) => item.id === "a")?.mesas?.[0]?.hours, "1")
+    assert.equal(lido.projects.find((item) => item.id === "b")?.mesas?.[0]?.hours, "2")
+  })
+
+  test("nome de mesa vazio gravado", async () => {
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({
+          copies: "2",
+          hours: "",
+          minutes: "",
+          grams: "",
+          colors: [],
+          mesas: [mesa({ name: "" })],
+        })
+      )
+    )
+    const lido = ok(await abrirBanco(url).ler())
+    assert.equal(lido.projects[0]?.mesas?.[0]?.name, "")
+  })
+
+  test("tarifa nova nao regrava o projeto", async () => {
+    await usarImpressora(mil)
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({
+          copies: "1",
+          labor: "0",
+          hours: "",
+          minutes: "",
+          grams: "",
+          colors: [],
+          updatedAt: 10,
+          mesas: [mesa({ id: "a" }), mesa({ id: "b" })],
+        })
+      )
+    )
+    const antes = ok(await abrirBanco(url).ler())
+    const projetoAntes = antes.projects[0]
+    assert.ok(projetoAntes)
+    assert.equal(precos(projetoAntes, mil).lot, 4)
+    ok(await abrirBanco(url).atualizarImpressora("k2-pro", { energyPrice: "2" }))
+    const depois = ok(await abrirBanco(url).ler())
+    const projetoDepois = depois.projects[0]
+    assert.ok(projetoDepois)
+    assert.equal(projetoDepois.updatedAt, projetoAntes.updatedAt)
+    assert.equal(precos(projetoDepois, { ...mil, energyPrice: "2" }).lot, 6)
+  })
+
+  test("tabela mesa no schema", async () => {
+    ok(await abrirBanco(url).ler())
+    const colunas = await sql<{ column_name: string; data_type: string; is_nullable: string }>(
+      `SELECT column_name, data_type, is_nullable
+       FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'mesa'
+       ORDER BY ordinal_position`
+    )
+    assert.deepEqual(
+      colunas.rows.map((row) => row.column_name),
+      ["projeto_id", "id", "hours", "minutes", "name", "hex", "price", "grams", "posicao"]
+    )
+    for (const row of colunas.rows) {
+      assert.equal(row.is_nullable, "NO", row.column_name)
+      assert.equal(row.data_type, row.column_name === "posicao" ? "integer" : "text", row.column_name)
+    }
+    const chaves = await sql<{ def: string }>(
+      "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conrelid = 'mesa'::regclass"
+    )
+    const texto = chaves.rows.map((row) => row.def).join("\n")
+    assert.match(texto, /PRIMARY KEY \(projeto_id, id\)/)
+    assert.match(texto, /REFERENCES projeto\(id\) ON DELETE CASCADE/)
+    const projetoCols = await sql<{ column_name: string }>(
+      "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'projeto'"
+    )
+    assert.deepEqual(
+      projetoCols.rows.map((row) => row.column_name).sort(),
+      ["color_mode", "copies", "grams", "hours", "id", "labor", "minutes", "mode", "name", "printer_id", "updated_at"]
+    )
+  })
+
+  test("payload sem mesas apaga mesa", async () => {
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({ id: "a", hours: "", minutes: "", grams: "", colors: [], mesas: [mesa({ id: "a1" }), mesa({ id: "a2" })] })
+      )
+    )
+    ok(
+      await abrirBanco(url).gravarProjeto(
+        projeto({ id: "b", hours: "", minutes: "", grams: "", colors: [], mesas: [mesa({ id: "b1" })] })
+      )
+    )
+    ok(await abrirBanco(url).gravarProjeto(projeto({ id: "a", mesas: [] })))
+    assert.equal(await contagem("mesa", "a"), 0)
+    assert.equal(await contagem("mesa", "b"), 1)
   })
 })

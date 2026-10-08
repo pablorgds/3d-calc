@@ -1,6 +1,15 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { calculate, draftToCalcInput, parseDecimal, parseInteger, type CalcInput, type Field } from "./custo.ts"
+import {
+  calculate,
+  draftToCalcInput,
+  parseDecimal,
+  parseInteger,
+  type CalcInput,
+  type Field,
+  type JobDraft,
+  type MesaDraft,
+} from "./custo.ts"
 
 const ok = (value: number): Field => ({ status: "ok", value })
 
@@ -129,6 +138,138 @@ test("lote lê as cópias e a tarifa vem da impressora", () => {
   assert.deepEqual(input.copies, { status: "ok", value: 3 })
   assert.deepEqual(input.energyPricePerKwh, { status: "ok", value: 1 })
   assert.equal(input.colors[0].grams.status, "ok")
+})
+
+const mil = { watts: "1000", energyPrice: "1", printerPrice: "1000", lifeHours: "1000" }
+const cem = { watts: "100", energyPrice: "1", printerPrice: "1000", lifeHours: "1000" }
+
+function chapa(overrides: Partial<MesaDraft> = {}): MesaDraft {
+  return { id: "m1", hours: "1", minutes: "0", name: "", hex: "#111111", price: "0", grams: "0", ...overrides }
+}
+
+function contaMesas(mesas: MesaDraft[], overrides: Partial<JobDraft> = {}, printer = mil) {
+  return calculate(
+    draftToCalcInput(
+      {
+        mode: "peca",
+        copies: "1",
+        hours: "",
+        minutes: "",
+        labor: "0",
+        colorMode: "unica",
+        grams: "",
+        colors: [],
+        mesas,
+        ...overrides,
+      },
+      printer
+    )
+  )
+}
+
+test("duas mesas peca total 4", () => {
+  const result = contaMesas([chapa({ id: "a" }), chapa({ id: "b" })])
+  assert.equal(result.piece.material, 0)
+  assert.equal(result.piece.energy, 2)
+  assert.equal(result.piece.depreciation, 2)
+  assert.equal(result.piece.labor, 0)
+  assert.equal(result.piece.total, 4)
+})
+
+test("duas mesas lote total 8", () => {
+  const result = contaMesas([chapa({ id: "a" }), chapa({ id: "b" })], { copies: "2" })
+  assert.equal(result.lot.material, 0)
+  assert.equal(result.lot.energy, 4)
+  assert.equal(result.lot.depreciation, 4)
+  assert.equal(result.lot.labor, 0)
+  assert.equal(result.lot.total, 8)
+  assert.equal(result.lot.minutes, 240)
+})
+
+test("duas mesas material 220", () => {
+  const result = contaMesas(
+    [
+      chapa({ id: "a", hours: "0", minutes: "0", grams: "1000", price: "100" }),
+      chapa({ id: "b", hours: "0", minutes: "0", grams: "1000", price: "100" }),
+    ],
+    { labor: "10" }
+  )
+  assert.equal(result.piece.material, 200)
+  assert.equal(result.piece.energy, 0)
+  assert.equal(result.piece.depreciation, 0)
+  assert.equal(result.piece.labor, 20)
+  assert.equal(result.piece.total, 220)
+})
+
+test("mesa aberta anula os totais", () => {
+  const fechada = chapa({ id: "b" })
+  for (const campo of ["hours", "minutes", "grams", "price"] as const) {
+    for (const valor of ["", "-1"]) {
+      const result = contaMesas([chapa({ id: "a", [campo]: valor }), fechada])
+      assert.equal(result.piece.total, null, `${campo} ${valor} peca`)
+      assert.equal(result.lot.total, null, `${campo} ${valor} lote`)
+    }
+  }
+})
+
+test("copias invalidas mantem a peca", () => {
+  for (const copies of ["", "0", "2,5"]) {
+    const result = contaMesas([chapa({ id: "a" }), chapa({ id: "b" })], { copies })
+    assert.equal(result.piece.total, 4, copies)
+    assert.equal(result.lot.total, null, copies)
+  }
+})
+
+test("vida util zero deprecia zero", () => {
+  const result = contaMesas([chapa({ id: "a" }), chapa({ id: "b" })], {}, { ...mil, lifeHours: "0" })
+  assert.equal(result.piece.depreciation, 0)
+  assert.equal(result.piece.total, 2)
+})
+
+test("preco 1,5 material 1.5", () => {
+  const result = contaMesas([chapa({ hours: "0", minutes: "0", price: "1,5", grams: "1000" })])
+  assert.equal(result.piece.material, 1.5)
+})
+
+test("nome vazio fecha a peca", () => {
+  const result = contaMesas([chapa({ id: "a", name: "" }), chapa({ id: "b", name: "" })])
+  assert.equal(result.piece.total, 4)
+})
+
+test("mao de obra vazia anula os totais", () => {
+  const result = contaMesas([chapa({ id: "a" }), chapa({ id: "b" })], { labor: "" })
+  assert.equal(result.piece.total, null)
+  assert.equal(result.lot.total, null)
+})
+
+test("impressao sem mesas 1.86 e 3.72", () => {
+  const result = calculate(
+    draftToCalcInput(
+      {
+        mode: "lote",
+        copies: "2",
+        hours: "0",
+        minutes: "60",
+        labor: "20",
+        colorMode: "multicolor",
+        grams: "",
+        colors: [
+          { id: "a", name: "a", hex: "#111111", price: "100", grams: "10" },
+          { id: "b", name: "b", hex: "#222222", price: "50", grams: "20" },
+        ],
+      },
+      cem
+    )
+  )
+  assert.equal(result.piece.total, 1.86)
+  assert.equal(result.lot.total, 3.72)
+  assert.equal(result.mesas, false)
+})
+
+test("mesa zerada fecha em 0", () => {
+  const result = contaMesas([chapa({ hours: "0", minutes: "0", grams: "0", price: "0" })])
+  assert.equal(result.piece.total, 0)
+  assert.equal(result.lot.total, 0)
 })
 
 test("campo vazio e texto não viram zero", () => {

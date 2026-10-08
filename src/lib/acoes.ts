@@ -8,8 +8,16 @@ export async function lerDoBanco(chaves: { impressora: string | null; projetos: 
   return abrirBancoDoAmbiente().ler(chaves)
 }
 
-export async function gravarProjetoNoBanco(project: Project) {
+export async function gravarProjetoNoBanco(project: Project & { expectedUpdatedAt?: number }) {
   return abrirBancoDoAmbiente().gravarProjeto(project)
+}
+
+export async function adicionarMesaNoBanco(id: string, idNova: string, expectedUpdatedAt?: number) {
+  return abrirBancoDoAmbiente().adicionarMesa(id, idNova, expectedUpdatedAt)
+}
+
+export async function removerMesaNoBanco(id: string, mesaId: string, expectedUpdatedAt?: number) {
+  return abrirBancoDoAmbiente().removerMesa(id, mesaId, expectedUpdatedAt)
 }
 
 export async function duplicarProjetoNoBanco(id: string, novoId: string, now: number) {

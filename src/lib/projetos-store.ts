@@ -1,4 +1,4 @@
-import type { ColorDraft, EntryMode, JobDraft } from "./custo"
+import { parseDecimal, parseInteger, type ColorDraft, type EntryMode, type JobDraft, type MesaDraft } from "./custo"
 
 export type Project = JobDraft & {
   id: string
@@ -9,8 +9,128 @@ export type Project = JobDraft & {
 
 export const serverProjects: Project[] = []
 
+export const HEX_MESA_NOVA = "#57534e"
+
+export function mesaVazia(id: string): MesaDraft {
+  return { id, hours: "", minutes: "", name: "", hex: HEX_MESA_NOVA, price: "", grams: "" }
+}
+
+export function mesaFechada(mesa: MesaDraft) {
+  return [mesa.hours, mesa.minutes, mesa.price, mesa.grams].every((value) => parseDecimal(value).status === "ok")
+}
+
+function copiesUm(copies: string) {
+  const parsed = parseInteger(copies)
+  return parsed.status === "ok" && parsed.value === 1
+}
+
+export function idAoSalvar(projectId: string | null, missing: boolean, novoId: string) {
+  if (!projectId || missing) return novoId
+  return projectId
+}
+
+function impressaoDaMesa(project: Project, mesa: MesaDraft): Project {
+  return {
+    ...project,
+    mode: "peca",
+    colorMode: "unica",
+    copies: "1",
+    hours: mesa.hours,
+    minutes: mesa.minutes,
+    grams: mesa.grams,
+    colors: [{ id: mesa.id, name: mesa.name, hex: mesa.hex, price: mesa.price, grams: mesa.grams }],
+    mesas: [],
+  }
+}
+
+export function ganharMesa(project: Project, idNova: string): { status: "recusado" } | { status: "ok"; project: Project } {
+  const mesas = project.mesas ?? []
+  if (mesas.length === 0 && project.colors.length > 1) return { status: "recusado" }
+  if (mesas.length > 0) {
+    return { status: "ok", project: { ...project, mesas: [...mesas, mesaVazia(idNova)] } }
+  }
+  const cor = project.colors[0]
+  const primeira: MesaDraft = {
+    id: cor?.id ?? `${idNova}-chapa`,
+    hours: project.hours,
+    minutes: project.minutes,
+    name: cor?.name ?? "",
+    hex: cor?.hex ?? HEX_MESA_NOVA,
+    price: cor?.price ?? "",
+    grams: project.colorMode === "multicolor" ? (cor?.grams ?? "") : project.grams,
+  }
+  return {
+    status: "ok",
+    project: {
+      ...project,
+      mode: "peca",
+      colorMode: "unica",
+      hours: "",
+      minutes: "",
+      grams: "",
+      colors: [],
+      mesas: [primeira, mesaVazia(idNova)],
+    },
+  }
+}
+
+export function perderMesa(project: Project, id: string): Project {
+  const mesas = (project.mesas ?? []).filter((mesa) => mesa.id !== id)
+  const fechadas = mesas.filter(mesaFechada)
+  const abertas = mesas.filter((mesa) => !mesaFechada(mesa))
+  if (abertas.length === 0 && fechadas.length === 1 && copiesUm(project.copies)) return impressaoDaMesa(project, fechadas[0])
+  if (mesas.length === 0) return { ...project, mesas: [] }
+  return {
+    ...project,
+    mode: "peca",
+    colorMode: "unica",
+    hours: "",
+    minutes: "",
+    grams: "",
+    colors: [],
+    mesas,
+  }
+}
+
+export function prepararGravacao(project: Project): Project {
+  const seen = new Set<string>()
+  const mesas: MesaDraft[] = []
+  for (const mesa of project.mesas ?? []) {
+    if (seen.has(mesa.id)) continue
+    seen.add(mesa.id)
+    mesas.push(mesa)
+  }
+  if (mesas.length === 0) return { ...project, mesas: [] }
+  return {
+    ...project,
+    mode: "peca",
+    colorMode: "unica",
+    hours: "",
+    minutes: "",
+    grams: "",
+    colors: [],
+    mesas,
+  }
+}
+
 function asString(value: unknown, fallback = "") {
   return typeof value === "string" ? value : fallback
+}
+
+function parseMesa(value: unknown): MesaDraft | null {
+  if (!value || typeof value !== "object") return null
+  const record = value as Record<string, unknown>
+  const id = asString(record.id).trim()
+  if (!id) return null
+  return {
+    id,
+    hours: asString(record.hours),
+    minutes: asString(record.minutes),
+    name: asString(record.name),
+    hex: asString(record.hex, HEX_MESA_NOVA),
+    price: asString(record.price),
+    grams: asString(record.grams),
+  }
 }
 
 function parseColor(value: unknown): ColorDraft | null {
@@ -45,6 +165,9 @@ export function parseProject(value: unknown): Project | null {
   const colors = Array.isArray(record.colors)
     ? record.colors.map(parseColor).filter((color): color is ColorDraft => color !== null)
     : []
+  const mesas = Array.isArray(record.mesas)
+    ? record.mesas.map(parseMesa).filter((mesa): mesa is MesaDraft => mesa !== null)
+    : []
   const colorMode = parseColorMode(record.colorMode, colors.length)
   const gramsGravados = asString(record.grams, "")
   return {
@@ -59,6 +182,7 @@ export function parseProject(value: unknown): Project | null {
     colorMode,
     grams: gramsGravados !== "" ? gramsGravados : colorMode === "unica" ? (colors[0]?.grams ?? "") : "",
     colors,
+    mesas,
     updatedAt: typeof record.updatedAt === "number" && Number.isFinite(record.updatedAt) ? record.updatedAt : 0,
   }
 }
@@ -109,6 +233,7 @@ export function copyProject(projects: Project[], id: string, newId: string, now:
     id: nextId,
     name: `${source.name} (cópia)`,
     colors: source.colors.map((color) => ({ ...color })),
+    mesas: (source.mesas ?? []).map((mesa) => ({ ...mesa })),
     updatedAt: now,
   })
 }

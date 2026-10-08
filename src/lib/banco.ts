@@ -8,7 +8,16 @@ import {
   type Printer,
   type PrinterStore,
 } from "./impressora-store"
-import { copyProject, parseProject, parseProjects, sortProjects, type Project } from "./projetos-store"
+import {
+  copyProject,
+  ganharMesa,
+  parseProject,
+  parseProjects,
+  perderMesa,
+  prepararGravacao,
+  sortProjects,
+  type Project,
+} from "./projetos-store"
 
 export type Resultado =
   | { status: "ok"; printers: PrinterStore; projects: Project[] }
@@ -17,6 +26,8 @@ export type Resultado =
 export type Banco = {
   ler(chaves?: { impressora: string | null; projetos: string | null }): Promise<Resultado>
   gravarProjeto(value: unknown): Promise<Resultado | { status: "rejeitado" }>
+  adicionarMesa(id: string, idNova: string, expectedUpdatedAt?: number): Promise<Resultado | { status: "recusado" }>
+  removerMesa(id: string, mesaId: string, expectedUpdatedAt?: number): Promise<Resultado>
   duplicarProjeto(id: string, novoId: string, now: number): Promise<Resultado>
   apagarProjeto(id: string): Promise<Resultado>
   adicionarImpressora(id: string): Promise<Resultado>
@@ -53,6 +64,18 @@ const TABELAS = [
   minutes text NOT NULL,
   labor text NOT NULL,
   updated_at double precision NOT NULL
+)`,
+  `CREATE TABLE IF NOT EXISTS mesa (
+  projeto_id text NOT NULL REFERENCES projeto (id) ON DELETE CASCADE,
+  id text NOT NULL,
+  hours text NOT NULL,
+  minutes text NOT NULL,
+  name text NOT NULL,
+  hex text NOT NULL,
+  price text NOT NULL,
+  grams text NOT NULL,
+  posicao integer NOT NULL,
+  PRIMARY KEY (projeto_id, id)
 )`,
   `CREATE TABLE IF NOT EXISTS cor (
   projeto_id text NOT NULL REFERENCES projeto (id) ON DELETE CASCADE,
@@ -204,11 +227,35 @@ async function lerProjetos(client: PoolClient): Promise<Project[]> {
     price: string
     grams: string
   }>("SELECT projeto_id, id, name, hex, price, grams FROM cor ORDER BY posicao, id")
+  const mesas = await client.query<{
+    projeto_id: string
+    id: string
+    hours: string
+    minutes: string
+    name: string
+    hex: string
+    price: string
+    grams: string
+  }>("SELECT projeto_id, id, hours, minutes, name, hex, price, grams FROM mesa ORDER BY posicao, id")
   const byProject = new Map<string, Project["colors"]>()
   for (const color of colors.rows) {
     const list = byProject.get(color.projeto_id) ?? []
     list.push({ id: color.id, name: color.name, hex: color.hex, price: color.price, grams: color.grams })
     byProject.set(color.projeto_id, list)
+  }
+  const mesasDoProjeto = new Map<string, NonNullable<Project["mesas"]>>()
+  for (const mesa of mesas.rows) {
+    const list = mesasDoProjeto.get(mesa.projeto_id) ?? []
+    list.push({
+      id: mesa.id,
+      hours: mesa.hours,
+      minutes: mesa.minutes,
+      name: mesa.name,
+      hex: mesa.hex,
+      price: mesa.price,
+      grams: mesa.grams,
+    })
+    mesasDoProjeto.set(mesa.projeto_id, list)
   }
   return sortProjects(
     projects.rows.map((row) => ({
@@ -223,6 +270,7 @@ async function lerProjetos(client: PoolClient): Promise<Project[]> {
       colorMode: row.color_mode === "multicolor" ? "multicolor" : "unica",
       grams: row.grams,
       colors: byProject.get(row.id) ?? [],
+      mesas: mesasDoProjeto.get(row.id) ?? [],
       updatedAt: Number(row.updated_at),
     }))
   )
@@ -255,7 +303,33 @@ async function substituirImpressoras(client: PoolClient, store: PrinterStore) {
   await client.query("DELETE FROM impressora WHERE NOT (id = ANY($1::text[]))", [store.printers.map((printer) => printer.id)])
 }
 
-async function inserirProjeto(client: PoolClient, project: Project) {
+function conflitoDeGravacao() {
+  const error = new Error("conflito")
+  ;(error as Error & { conflito?: boolean }).conflito = true
+  return error
+}
+
+function ehConflito(error: unknown) {
+  return Boolean(error && typeof error === "object" && "conflito" in error && error.conflito)
+}
+
+function updatedAtEsperado(value: unknown) {
+  if (!value || typeof value !== "object") return undefined
+  const raw = (value as Record<string, unknown>).expectedUpdatedAt
+  return typeof raw === "number" && Number.isFinite(raw) ? raw : undefined
+}
+
+async function exigirUpdatedAt(client: PoolClient, id: string, expected: number | undefined) {
+  if (expected === undefined) return
+  const atual = await client.query<{ updated_at: string | number }>("SELECT updated_at FROM projeto WHERE id = $1 FOR UPDATE", [
+    id,
+  ])
+  if (atual.rows.length > 0 && Number(atual.rows[0]?.updated_at) !== expected) throw conflitoDeGravacao()
+}
+
+async function inserirProjeto(client: PoolClient, project: Project, expected?: number) {
+  await exigirUpdatedAt(client, project.id, expected)
+  const gravado = prepararGravacao(project)
   await client.query(
     `INSERT INTO projeto (id, name, printer_id, mode, copies, hours, minutes, labor, color_mode, grams, updated_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
@@ -271,29 +345,42 @@ async function inserirProjeto(client: PoolClient, project: Project) {
        grams = EXCLUDED.grams,
        updated_at = EXCLUDED.updated_at`,
     [
-      project.id,
-      project.name,
-      project.printerId,
-      project.mode,
-      project.copies,
-      project.hours,
-      project.minutes,
-      project.labor,
-      project.colorMode === "multicolor" ? "multicolor" : "unica",
-      project.grams,
-      project.updatedAt,
+      gravado.id,
+      gravado.name,
+      gravado.printerId,
+      gravado.mode,
+      gravado.copies,
+      gravado.hours,
+      gravado.minutes,
+      gravado.labor,
+      gravado.colorMode === "multicolor" ? "multicolor" : "unica",
+      gravado.grams,
+      gravado.updatedAt,
     ]
   )
-  await client.query("DELETE FROM cor WHERE projeto_id = $1", [project.id])
+  await client.query("DELETE FROM cor WHERE projeto_id = $1", [gravado.id])
+  await client.query("DELETE FROM mesa WHERE projeto_id = $1", [gravado.id])
+  if ((gravado.mesas ?? []).length > 0) {
+    let posicao = 0
+    for (const mesa of gravado.mesas ?? []) {
+      await client.query(
+        `INSERT INTO mesa (projeto_id, id, hours, minutes, name, hex, price, grams, posicao)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [gravado.id, mesa.id, mesa.hours, mesa.minutes, mesa.name, mesa.hex, mesa.price, mesa.grams, posicao]
+      )
+      posicao += 1
+    }
+    return
+  }
   const seen = new Set<string>()
   let posicao = 0
-  for (const color of project.colors) {
+  for (const color of gravado.colors) {
     if (seen.has(color.id)) continue
     seen.add(color.id)
     await client.query(
       `INSERT INTO cor (projeto_id, id, name, hex, price, grams, posicao)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [project.id, color.id, color.name, color.hex, color.price, color.grams, posicao]
+      [gravado.id, color.id, color.name, color.hex, color.price, color.grams, posicao]
     )
     posicao += 1
   }
@@ -390,12 +477,60 @@ function criar(pool: Pool, databaseUrl: string): Banco {
     async gravarProjeto(value) {
       const project = parseProject(value)
       if (!project) return { status: "rejeitado" }
+      const expected = updatedAtEsperado(value)
       try {
         await preparado(async (client) => {
-          await inserirProjeto(client, project)
+          await inserirProjeto(client, project, expected)
         })
         return estado()
       } catch (error) {
+        if (ehConflito(error)) return estado()
+        if (bancoIndisponivel(error)) {
+          avisarIndisponivel()
+          return { status: "erro" }
+        }
+        throw error
+      }
+    },
+
+    async adicionarMesa(id, idNova, expectedUpdatedAt) {
+      let recusado = false
+      try {
+        await preparado(async (client) => {
+          const projects = await lerProjetos(client)
+          const project = projects.find((item) => item.id === id)
+          if (!project) return
+          const next = ganharMesa(project, idNova)
+          if (next.status === "recusado") {
+            recusado = true
+            return
+          }
+          await inserirProjeto(client, { ...next.project, updatedAt: Date.now() }, expectedUpdatedAt)
+        })
+        if (recusado) return { status: "recusado" }
+        return estado()
+      } catch (error) {
+        if (ehConflito(error)) return estado()
+        if (bancoIndisponivel(error)) {
+          avisarIndisponivel()
+          return { status: "erro" }
+        }
+        throw error
+      }
+    },
+
+    async removerMesa(id, mesaId, expectedUpdatedAt) {
+      try {
+        await preparado(async (client) => {
+          const projects = await lerProjetos(client)
+          const project = projects.find((item) => item.id === id)
+          if (!project) return
+          const next = perderMesa(project, mesaId)
+          await inserirProjeto(client, { ...next, updatedAt: Date.now() }, expectedUpdatedAt)
+        })
+        return estado()
+      } catch (error) {
+        if (ehConflito(error)) return estado()
         if (bancoIndisponivel(error)) {
           avisarIndisponivel()
           return { status: "erro" }
@@ -550,6 +685,14 @@ export function abrirBancoDoAmbiente(): Banco {
         return { status: "erro" }
       },
       async gravarProjeto() {
+        avisarIndisponivel()
+        return { status: "erro" }
+      },
+      async adicionarMesa() {
+        avisarIndisponivel()
+        return { status: "erro" }
+      },
+      async removerMesa() {
         avisarIndisponivel()
         return { status: "erro" }
       },

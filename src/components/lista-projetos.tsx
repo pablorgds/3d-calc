@@ -5,27 +5,12 @@ import Link from "next/link"
 import { buttonVariants } from "@/components/ui/button"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { calculate, combineTime, draftToCalcInput, formatBRL, formatDuration } from "@/lib/custo"
+import { calculate, draftToCalcInput, formatBRL } from "@/lib/custo"
 import { useLeitura } from "@/lib/impressora"
-import { deleteProject, duplicateProject, type Project } from "@/lib/projetos"
-import { vistaCarregamento } from "@/lib/vistas"
+import { deleteProject, duplicateProject } from "@/lib/projetos"
+import { descricaoProjeto, vistaCarregamento } from "@/lib/vistas"
 import { atrasoLista } from "@/lib/movimento"
 import { cn } from "cn"
-
-function colorLabel(count: number) {
-  if (count === 0) return "sem cores"
-  if (count === 1) return "1 cor"
-  return `${count} cores`
-}
-
-function projectParts(project: Project) {
-  const minutes = combineTime(project.hours, project.minutes)
-  const time = minutes.status === "ok" ? formatDuration(minutes.value) : "tempo incompleto"
-  const scope = project.mode === "peca" ? "peça" : "lote"
-  const mode = project.mode === "peca" ? "Peça única" : `Lote · ${project.copies} cópias`
-  const labor = project.labor.trim() === "" ? "mão de obra vazia" : `mão de obra ${project.labor}%`
-  return { mode, time, scope, labor, colors: colorLabel(project.colors.length) }
-}
 
 export function ListaProjetos() {
   const leitura = useLeitura()
@@ -85,7 +70,7 @@ export function ListaProjetos() {
           timeStyle: "short",
         })
         const confirming = pendingDelete === project.id
-        const parts = projectParts(project)
+        const parts = descricaoProjeto(project)
         return (
           <Card
             key={project.id}
@@ -100,16 +85,11 @@ export function ListaProjetos() {
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3">
-              <p className="text-sm text-muted-foreground">
-                {parts.mode}
-                {" · "}
-                <span className="figura">{parts.time}</span>
-                {` no ${parts.scope} · ${parts.labor} · ${parts.colors}`}
-              </p>
+              <p className="text-sm text-muted-foreground">{parts.linha}</p>
               {printer ? (
                 <p className="text-lg font-semibold" data-testid={`total-projeto-${project.id}`}>
                   <span className="figura">{total === null ? "Total incompleto" : formatBRL(total)}</span>
-                  <span className="legenda ml-2 text-muted-foreground">lote, tarifa atual</span>
+                  <span className="legenda ml-2 text-muted-foreground">{parts.legenda}</span>
                 </p>
               ) : (
                 <p className="text-sm text-muted-foreground">

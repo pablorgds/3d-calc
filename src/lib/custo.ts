@@ -15,6 +15,15 @@ export type ColorInput = {
   grams: Field
 }
 
+export type MesaInput = {
+  id: string
+  name: string
+  hex: string
+  minutes: Field
+  pricePerKg: Field
+  grams: Field
+}
+
 export type CalcInput = {
   mode: EntryMode
   copies: Field
@@ -25,6 +34,7 @@ export type CalcInput = {
   lifeHours: Field
   laborPercent: Field
   colors: ColorInput[]
+  mesas?: MesaInput[]
 }
 
 export type Amount = number | null
@@ -61,6 +71,7 @@ export type CalcResult = {
   printerPriceIssue: "none" | "empty" | "invalid"
   materialIssue: "none" | "no-colors" | "invalid-color"
   colors: ColorDetail[]
+  mesas: boolean
 }
 
 const emptySide = (): Side => ({
@@ -131,7 +142,95 @@ function applyScale(entered: Amount, mode: EntryMode, copies: Field): { piece: A
   return scale(entered, mode, copies)
 }
 
+function calculateMesas(input: CalcInput): CalcResult {
+  const mesas = input.mesas ?? []
+  const lifeIssue = lifeIssueOf(input.lifeHours)
+  const copiesIssue = copiesIssueOf(input.copies)
+  const laborIssue = issueOf(input.laborPercent)
+  const printerPriceIssue = issueOf(input.printerPrice)
+  const wattsIssue = issueOf(input.watts)
+  const kwhIssue = issueOf(input.energyPricePerKwh)
+  const energyIssue: CalcResult["energyIssue"] = wattsIssue !== "none" ? wattsIssue : kwhIssue
+  const depreciationBlocked = lifeIssue !== "none"
+  const timeIssue: CalcResult["timeIssue"] = mesas.some((mesa) => mesa.minutes.status === "empty")
+    ? "empty"
+    : mesas.some((mesa) => mesa.minutes.status === "invalid")
+      ? "invalid"
+      : "none"
+  const materialIssue: CalcResult["materialIssue"] = mesas.some(
+    (mesa) => mesa.pricePerKg.status !== "ok" || mesa.grams.status !== "ok"
+  )
+    ? "invalid-color"
+    : "none"
+  const aberto = timeIssue !== "none" || materialIssue !== "none"
+  const baseFecha = !aberto && energyIssue === "none" && printerPriceIssue === "none"
+
+  let material = 0
+  let energy = 0
+  let depreciation = 0
+  let minutes = 0
+  let grams = 0
+  if (baseFecha) {
+    for (const mesa of mesas) {
+      if (mesa.minutes.status !== "ok" || mesa.grams.status !== "ok" || mesa.pricePerKg.status !== "ok") continue
+      if (input.watts.status !== "ok" || input.energyPricePerKwh.status !== "ok" || input.printerPrice.status !== "ok") continue
+      const hours = mesa.minutes.value / 60
+      material += mesa.grams.value * (mesa.pricePerKg.value / 1000)
+      grams += mesa.grams.value
+      minutes += mesa.minutes.value
+      energy += (input.watts.value / 1000) * hours * input.energyPricePerKwh.value
+      if (input.lifeHours.status !== "ok" || input.lifeHours.value === 0) depreciation += 0
+      else depreciation += (input.printerPrice.value / input.lifeHours.value) * hours
+    }
+  }
+
+  const labor =
+    !baseFecha || input.laborPercent.status !== "ok"
+      ? null
+      : (material + energy + depreciation) * (input.laborPercent.value / 100)
+  const total = labor === null ? null : material + energy + depreciation + labor
+  const copiesFecham = input.copies.status === "ok" && input.copies.value > 0
+  const piece = emptySide()
+  const lot = emptySide()
+  lot.blockedByCopies = !copiesFecham
+  if (baseFecha) {
+    piece.minutes = minutes
+    piece.grams = grams
+    piece.material = material
+    piece.energy = energy
+    piece.depreciation = depreciation
+    piece.labor = labor
+    piece.total = total
+    if (copiesFecham && input.copies.status === "ok") {
+      const fator = input.copies.value
+      lot.minutes = minutes * fator
+      lot.grams = grams * fator
+      lot.material = material * fator
+      lot.energy = energy * fator
+      lot.depreciation = depreciation * fator
+      lot.labor = labor === null ? null : labor * fator
+      lot.total = total === null ? null : total * fator
+    }
+  }
+
+  return {
+    piece,
+    lot,
+    depreciationBlocked,
+    lifeIssue,
+    copiesIssue,
+    timeIssue,
+    energyIssue,
+    laborIssue,
+    printerPriceIssue,
+    materialIssue,
+    colors: [],
+    mesas: true,
+  }
+}
+
 export function calculate(input: CalcInput): CalcResult {
+  if ((input.mesas?.length ?? 0) > 0) return calculateMesas(input)
   const lifeIssue = lifeIssueOf(input.lifeHours)
   const copiesIssue = copiesIssueOf(input.copies)
   const timeIssue = issueOf(input.minutes)
@@ -241,11 +340,22 @@ export function calculate(input: CalcInput): CalcResult {
     printerPriceIssue,
     materialIssue,
     colors,
+    mesas: false,
   }
 }
 
 export type ColorDraft = {
   id: string
+  name: string
+  hex: string
+  price: string
+  grams: string
+}
+
+export type MesaDraft = {
+  id: string
+  hours: string
+  minutes: string
   name: string
   hex: string
   price: string
@@ -261,6 +371,7 @@ export type JobDraft = {
   colorMode: ColorMode
   grams: string
   colors: ColorDraft[]
+  mesas?: MesaDraft[]
 }
 
 function coresParaConta(draft: JobDraft): CalcInput["colors"] {
@@ -283,20 +394,55 @@ export function combineTime(hoursRaw: string, minutesRaw: string): Field {
   return { status: "ok", value: hours.value * 60 + minutes.value }
 }
 
+export function erroCampo(value: string, integer = false): string | null {
+  const parsed = integer ? parseInteger(value) : parseDecimal(value)
+  if (parsed.status === "invalid") return "Use zero ou um número positivo."
+  if (parsed.status === "empty") return "Campo vazio."
+  return null
+}
+
+export function errosAoGravar(draft: JobDraft): Record<string, string> {
+  const issues: Record<string, string> = {}
+  const note = (id: string, value: string, integer = false) => {
+    const issue = erroCampo(value, integer)
+    if (issue) issues[id] = issue
+  }
+  const mesas = draft.mesas ?? []
+  if (mesas.length === 0) return issues
+  note("copias", draft.copies, true)
+  note("mao-de-obra", draft.labor)
+  for (const mesa of mesas) {
+    note(`${mesa.id}-horas`, mesa.hours)
+    note(`${mesa.id}-minutos`, mesa.minutes)
+    note(`${mesa.id}-preco`, mesa.price)
+    note(`${mesa.id}-peso`, mesa.grams)
+  }
+  return issues
+}
+
 export function draftToCalcInput(
   draft: JobDraft,
   printer: { watts: string; energyPrice: string; printerPrice: string; lifeHours: string }
 ): CalcInput {
+  const mesas = (draft.mesas ?? []).map((mesa) => ({
+    id: mesa.id,
+    name: mesa.name,
+    hex: mesa.hex,
+    minutes: combineTime(mesa.hours, mesa.minutes),
+    pricePerKg: parseDecimal(mesa.price),
+    grams: parseDecimal(mesa.grams),
+  }))
   return {
     mode: draft.mode,
-    copies: draft.mode === "peca" ? { status: "ok", value: 1 } : parseInteger(draft.copies),
+    copies: mesas.length > 0 ? parseInteger(draft.copies) : draft.mode === "peca" ? { status: "ok", value: 1 } : parseInteger(draft.copies),
     minutes: combineTime(draft.hours, draft.minutes),
     watts: parseDecimal(printer.watts),
     energyPricePerKwh: parseDecimal(printer.energyPrice),
     printerPrice: parseDecimal(printer.printerPrice),
     lifeHours: parseDecimal(printer.lifeHours),
     laborPercent: parseDecimal(draft.labor),
-    colors: coresParaConta(draft),
+    colors: mesas.length > 0 ? [] : coresParaConta(draft),
+    mesas,
   }
 }
 

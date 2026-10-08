@@ -25,6 +25,14 @@ A mão de obra não entra na própria base. Vida útil `0` zera a depreciação 
 
 `calculate` ainda escala o modo peça se receber cópias diferentes de 1. A tela não faz isso: o caminho da calculadora sempre manda 1.
 
+## Mesas
+
+Um projeto com mesas não usa o modo da impressão única. Cada mesa é uma chapa: horas, minutos e um filamento, com preço por kg e gramas. A peça é a soma do material, da energia e da depreciação de cada chapa. A mão de obra é o percentual do projeto, uma vez, sobre essa soma. O lote é a peça vezes as cópias do produto.
+
+Cópias do produto precisam ser um inteiro maior que zero. Vazio, zero ou quebrado mantém a peça e deixa o lote sem total. Uma chapa com horas, minutos, preço ou gramas vazio ou inválido deixa a peça e o lote sem total. Nome vazio não impede o total. Zero em horas, minutos, preço e gramas fecha a chapa em zero. Vida útil `0` zera a depreciação da soma.
+
+Sem mesas, a conta continua a da impressão única.
+
 ## Campos
 
 `parseDecimal` e `parseInteger` devolvem `empty`, `invalid` ou `ok`. Vazio não vira zero. Negativo é inválido. `1,5` e `1.234,56` são decimais em pt-BR. Cópias são inteiras; `2,5` é inválido.

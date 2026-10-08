@@ -1,3 +1,6 @@
+import { combineTime, formatBRL, formatDuration, parseInteger, type EntryMode } from "./custo"
+import type { Project } from "./projetos-store"
+
 export const TEXTO_LENDO = "Lendo impressoras e projetos."
 export const TITULO_ERRO = "Não deu para ler o banco."
 export const DESCRICAO_CONFIG_LENDO = "As impressoras ficam no banco deste computador, sem conta."
@@ -32,6 +35,59 @@ export function vistaCarregamento(tela: TelaBanco, status: "lendo" | "erro") {
     mostraVazio: false,
     mostraFormulario: false,
   }
+}
+
+export const FRASE_MESAS =
+  "Cada mesa é uma chapa: um tempo e um filamento. A peça soma as mesas. As cópias multiplicam o produto."
+export const FRASE_VARIAS_CORES = "Esta impressão tem várias cores num tempo só. A mesa leva uma cor."
+export const AVISO_COPIAS_PRODUTO =
+  "Custo do lote bloqueado. Cópias do produto precisa ser um inteiro maior que zero."
+export const ROTULO_MAO_DE_OBRA = "Mão de obra (%)"
+export const LEGENDA_LOTE = "lote, tarifa atual"
+
+export function avisoCopiasProduto(copies: string): string | null {
+  const parsed = parseInteger(copies)
+  if (parsed.status === "ok" && parsed.value > 0) return null
+  return AVISO_COPIAS_PRODUTO
+}
+
+export function textoDeTotal(value: number | null) {
+  return value === null ? "—" : formatBRL(value)
+}
+
+export function fichaCalculadora(temMesas: boolean, mode: EntryMode) {
+  if (temMesas) {
+    return {
+      modos: [] as string[],
+      copias: "Cópias do produto",
+      peso: null as string | null,
+      frase: FRASE_MESAS,
+      maoDeObra: ROTULO_MAO_DE_OBRA,
+    }
+  }
+  return {
+    modos: ["Uma peça", "O lote inteiro", "Uma cor", "Várias cores"],
+    copias: mode === "lote" ? "Cópias na mesa" : null,
+    peso: mode === "peca" ? "Peso da peça (g)" : "Peso da mesa (g)",
+    frase: null as string | null,
+    maoDeObra: ROTULO_MAO_DE_OBRA,
+  }
+}
+
+export function descricaoProjeto(project: Project) {
+  const quantidade = project.mesas?.length ?? 0
+  const labor = project.labor.trim() === "" ? "mão de obra vazia" : `mão de obra ${project.labor}%`
+  if (quantidade > 0) {
+    const mesas = quantidade === 1 ? "1 mesa" : `${quantidade} mesas`
+    return { linha: `${mesas} · ${project.copies} cópias do produto · ${labor}`, legenda: LEGENDA_LOTE }
+  }
+  const minutes = combineTime(project.hours, project.minutes)
+  const time = minutes.status === "ok" ? formatDuration(minutes.value) : "tempo incompleto"
+  const scope = project.mode === "peca" ? "peça" : "lote"
+  const mode = project.mode === "peca" ? "Peça única" : `Lote · ${project.copies} cópias`
+  const colors =
+    project.colors.length === 0 ? "sem cores" : project.colors.length === 1 ? "1 cor" : `${project.colors.length} cores`
+  return { linha: `${mode} · ${time} no ${scope} · ${labor} · ${colors}`, legenda: LEGENDA_LOTE }
 }
 
 export function frasesCalculadora(situacao: "ausente" | "gravado" | "novo") {

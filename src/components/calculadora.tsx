@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react"
+import { useEffect, useState, type CSSProperties } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -12,7 +12,7 @@ import { useMovimento } from "@/components/movimento"
 import {
   calculate,
   draftToCalcInput,
-  formatBRL,
+  errosAoGravar,
   formatDuration,
   formatGrams,
   type Amount,
@@ -20,17 +20,26 @@ import {
   type ColorDraft,
   type ColorMode,
   type EntryMode,
+  type MesaDraft,
 } from "@/lib/custo"
 import { setActivePrinter, useLeitura, usePrinterStore } from "@/lib/impressora"
 import { activePrinterOf } from "@/lib/impressora-store"
-import { writeProject, type Project } from "@/lib/projetos"
-import { frasesCalculadora, vistaCarregamento } from "@/lib/vistas"
+import { addMesa as gravarMesa, removeMesa as apagarMesa, writeProject, type Project } from "@/lib/projetos"
+import { ganharMesa, idAoSalvar, perderMesa } from "@/lib/projetos-store"
+import {
+  avisoCopiasProduto,
+  fichaCalculadora,
+  FRASE_VARIAS_CORES,
+  frasesCalculadora,
+  textoDeTotal,
+  vistaCarregamento,
+} from "@/lib/vistas"
 import { atrasoLista, type TipoMontagem } from "@/lib/movimento"
 
 const swatches = ["#78716c", "#57534e", "#a8a29e", "#44403c"]
 
 function showMoney(value: Amount) {
-  return value === null ? "—" : formatBRL(value)
+  return textoDeTotal(value)
 }
 
 function showTime(value: Amount) {
@@ -81,13 +90,13 @@ function resultNotes(result: CalcResult, mode: EntryMode): string[] {
   if (result.laborIssue === "invalid") {
     notes.push("Percentual de mão de obra inválido.")
   }
-  if (mode === "lote" && result.piece.blockedByCopies) {
+  if (!result.mesas && mode === "lote" && result.piece.blockedByCopies) {
     notes.push("Custo por peça bloqueado. No modo lote, cópias precisa ser maior que zero.")
   }
-  if (mode === "peca" && result.lot.blockedByCopies) {
+  if (!result.mesas && mode === "peca" && result.lot.blockedByCopies) {
     notes.push("Custo do lote bloqueado. Informe as cópias com um inteiro a partir de zero.")
   }
-  if (mode === "peca") {
+  if (!result.mesas && mode === "peca") {
     notes.push("Peça única: não há cópias na mesa. O lote é esta mesma peça.")
   }
   return notes
@@ -201,9 +210,14 @@ export function Calculadora({ projectId }: { projectId: string | null }) {
   if (leitura.status === "erro") return <CalculadoraErro tipo={tipo} />
   if (leitura.status !== "pronto") return <CalculadoraLoading tipo={tipo} />
   const project = projectId ? (leitura.projects.find((item) => item.id === projectId) ?? null) : null
+  const marca = project
+    ? `${project.updatedAt}:${project.mesas?.length ?? 0}:${project.colors.length}:${project.hours}:${project.mode}`
+    : projectId
+      ? `ausente-${projectId}`
+      : "novo"
   return (
     <CalculadoraEditor
-      key={project?.id ?? (projectId ? `ausente-${projectId}` : "novo")}
+      key={marca}
       projectId={projectId}
       initial={project}
       missing={projectId !== null && project === null}
@@ -236,6 +250,8 @@ function CalculadoraEditor({
   const [labor, setLabor] = useState(initial?.labor ?? "")
   const [colorMode, setColorMode] = useState<ColorMode>(initial?.colorMode ?? "unica")
   const [grams, setGrams] = useState(initial?.grams ?? "")
+  const [mesas, setMesas] = useState<MesaDraft[]>(initial?.mesas ?? [])
+  const [recusa, setRecusa] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
@@ -277,6 +293,60 @@ function CalculadoraEditor({
     setColors((current) => current.filter((color) => color.id !== id))
   }
 
+  function rascunhoAtual(): Project {
+    return {
+      id: initial?.id ?? "local",
+      name: projectName,
+      printerId: printer?.id ?? "",
+      mode,
+      copies,
+      hours,
+      minutes: minutesPart,
+      labor,
+      colorMode,
+      grams,
+      colors,
+      mesas,
+      updatedAt: initial?.updatedAt ?? 0,
+    }
+  }
+
+  function aplicarProjeto(next: Project) {
+    setMode(next.mode)
+    setCopies(next.copies)
+    setHours(next.hours)
+    setMinutesPart(next.minutes)
+    setLabor(next.labor)
+    setColorMode(next.colorMode)
+    setGrams(next.grams)
+    setColors(next.colors)
+    setMesas(next.mesas ?? [])
+  }
+
+  async function incluirMesa() {
+    setRecusa(null)
+    if (missing && projectId) return
+    if (projectId && !missing) {
+      const resultado = await gravarMesa(projectId, crypto.randomUUID(), initial?.updatedAt)
+      if (resultado.status === "recusado") setRecusa(FRASE_VARIAS_CORES)
+      return
+    }
+    const next = ganharMesa(rascunhoAtual(), crypto.randomUUID())
+    if (next.status === "recusado") {
+      setRecusa(FRASE_VARIAS_CORES)
+      return
+    }
+    aplicarProjeto(next.project)
+  }
+
+  async function tirarMesa(id: string) {
+    if (projectId && !missing) {
+      await apagarMesa(projectId, id, initial?.updatedAt)
+      return
+    }
+    aplicarProjeto(perderMesa(rascunhoAtual(), id))
+  }
+
   function addColor() {
     setColors((current) => [
       ...current,
@@ -290,18 +360,14 @@ function CalculadoraEditor({
     ])
   }
 
-  const result = useMemo(
-    () =>
-      printer
-        ? calculate(
-            draftToCalcInput(
-              { mode, copies, hours, minutes: minutesPart, labor, colorMode, grams, colors },
-              printer
-            )
-          )
-        : null,
-    [mode, copies, hours, minutesPart, printer, labor, colorMode, grams, colors]
-  )
+  const result = printer
+    ? calculate(
+        draftToCalcInput(
+          { mode, copies, hours, minutes: minutesPart, labor, colorMode, grams, colors, mesas },
+          printer
+        )
+      )
+    : null
 
   function saveProject() {
     if (!printer) return
@@ -311,15 +377,19 @@ function CalculadoraEditor({
       const issue = numberFieldIssue(value, integer)
       if (issue) issues[id] = issue
     }
-    note("horas", hours)
-    note("minutos", minutesPart)
-    note("mao-de-obra", labor)
-    if (mode === "lote") note("copias", copies, true)
-    if (colorMode === "unica") note("peso", grams)
-    const coresConferidas = colorMode === "unica" ? colors.slice(0, 1) : colors
-    for (const color of coresConferidas) {
-      note(`${color.id}-preco`, color.price)
-      if (colorMode === "multicolor") note(`${color.id}-peso`, color.grams)
+    if (mesas.length > 0) {
+      Object.assign(issues, errosAoGravar({ mode, copies, hours, minutes: minutesPart, labor, colorMode, grams, colors, mesas }))
+    } else {
+      note("horas", hours)
+      note("minutos", minutesPart)
+      note("mao-de-obra", labor)
+      if (mode === "lote") note("copias", copies, true)
+      if (colorMode === "unica") note("peso", grams)
+      const coresConferidas = colorMode === "unica" ? colors.slice(0, 1) : colors
+      for (const color of coresConferidas) {
+        note(`${color.id}-preco`, color.price)
+        if (colorMode === "multicolor") note(`${color.id}-peso`, color.grams)
+      }
     }
     setFieldErrors(issues)
     setNameError(name ? null : "Dê um nome para gravar o lote.")
@@ -329,21 +399,43 @@ function CalculadoraEditor({
       }, 0)
       return
     }
-    const id = !projectId || missing ? crypto.randomUUID() : projectId
-    writeProject({
-      id,
-      name,
-      printerId: printer.id,
-      mode,
-      copies,
-      hours,
-      minutes: minutesPart,
-      labor,
-      colorMode,
-      grams,
-      colors: colorMode === "unica" ? colors.slice(0, 1).map((color) => ({ ...color, grams })) : colors,
-      updatedAt: Date.now(),
-    })
+    const id = idAoSalvar(projectId, missing, crypto.randomUUID())
+    const esperado = initial && !missing ? initial.updatedAt : undefined
+    writeProject(
+      mesas.length > 0
+        ? {
+            id,
+            name,
+            printerId: printer.id,
+            mode: "peca",
+            copies,
+            hours: "",
+            minutes: "",
+            labor,
+            colorMode: "unica",
+            grams: "",
+            colors: [],
+            mesas,
+            updatedAt: 0,
+            expectedUpdatedAt: esperado,
+          }
+        : {
+            id,
+            name,
+            printerId: printer.id,
+            mode,
+            copies,
+            hours,
+            minutes: minutesPart,
+            labor,
+            colorMode,
+            grams,
+            colors: colorMode === "unica" ? colors.slice(0, 1).map((color) => ({ ...color, grams })) : colors,
+            mesas: [],
+            updatedAt: 0,
+            expectedUpdatedAt: esperado,
+          }
+    )
     setProjectName(name)
     setNameError(null)
     if (id !== projectId) router.replace(`/?projeto=${encodeURIComponent(id)}`)
@@ -363,6 +455,8 @@ function CalculadoraEditor({
     setColorMode("unica")
     setGrams("")
     setColors([])
+    setMesas([])
+    setRecusa(null)
     setNameError(null)
     setFieldErrors({})
   }
@@ -377,6 +471,8 @@ function CalculadoraEditor({
     !printerStore.printers.some((item) => item.id === initial?.printerId)
 
   const notes = resultNotes(result, mode)
+  const ficha = fichaCalculadora(mesas.length > 0, mode)
+  const avisoCopias = mesas.length > 0 ? avisoCopiasProduto(copies) : null
   const modeHint =
     mode === "peca"
       ? colorMode === "unica"
@@ -483,9 +579,16 @@ function CalculadoraEditor({
         <Card>
           <CardHeader>
             <CardTitle>Objeto na cama</CardTitle>
-            <CardDescription>{modeHint}</CardDescription>
+            <CardDescription>{ficha.frase ?? modeHint}</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-5">
+            {recusa ? (
+              <p className="lavagem p-3 text-sm text-muted-foreground" data-testid="recusa-mesa">
+                {recusa}
+              </p>
+            ) : null}
+            {ficha.modos.length > 0 ? (
+            <>
             <fieldset className="grid gap-2">
               <legend className="legenda">O tempo e os pesos são de</legend>
               <div className="grid gap-2 sm:grid-cols-2">
@@ -494,7 +597,7 @@ function CalculadoraEditor({
                   value="peca"
                   checked={mode === "peca"}
                   onSelect={() => setMode("peca")}
-                  title="Peça única"
+                  title="Uma peça"
                   testId="modo-peca"
                 />
                 <ModeOption
@@ -529,7 +632,132 @@ function CalculadoraEditor({
                 />
               </div>
             </fieldset>
+            </>
+            ) : null}
 
+            {mesas.length > 0 ? (
+              <div className="grid gap-3">
+                <NumberField
+                  id="copias"
+                  label={ficha.copias ?? "Cópias do produto"}
+                  value={copies}
+                  onChange={(value) => {
+                    setCopies(value)
+                    forgetIssue("copias")
+                  }}
+                  integer
+                  placeholder="1"
+                  when="reported"
+                  error={fieldErrors.copias ?? null}
+                  testId="copias"
+                />
+                {mesas.map((mesa) => (
+                  <div key={mesa.id} className="grid gap-3 rounded-lg border p-3" data-testid={`mesa-${mesa.id}`}>
+                    <div className="flex items-end gap-3">
+                      <div className="campo">
+                        <Label htmlFor={`${mesa.id}-hex`}>Cor</Label>
+                        <input
+                          id={`${mesa.id}-hex`}
+                          type="color"
+                          value={mesa.hex}
+                          onChange={(event) =>
+                            setMesas((current) =>
+                              current.map((item) => (item.id === mesa.id ? { ...item, hex: event.target.value } : item))
+                            )
+                          }
+                          className="size-11 cursor-pointer rounded-md border bg-transparent p-1"
+                          aria-label="Cor do filamento"
+                          data-testid={`mesa-hex-${mesa.id}`}
+                        />
+                      </div>
+                      <div className="campo flex-1">
+                        <Label htmlFor={`${mesa.id}-nome`}>Nome</Label>
+                        <Input
+                          id={`${mesa.id}-nome`}
+                          value={mesa.name}
+                          onChange={(event) =>
+                            setMesas((current) =>
+                              current.map((item) => (item.id === mesa.id ? { ...item, name: event.target.value } : item))
+                            )
+                          }
+                          placeholder="Nome da cor"
+                          autoComplete="off"
+                          data-testid={`mesa-nome-${mesa.id}`}
+                          className="h-11"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-11"
+                        onClick={() => tirarMesa(mesa.id)}
+                        data-testid={`mesa-remover-${mesa.id}`}
+                      >
+                        Remover
+                      </Button>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <NumberField
+                        id={`${mesa.id}-horas`}
+                        label="Horas"
+                        value={mesa.hours}
+                        onChange={(hours) => {
+                          setMesas((current) => current.map((item) => (item.id === mesa.id ? { ...item, hours } : item)))
+                          forgetIssue(`${mesa.id}-horas`)
+                        }}
+                        placeholder="1"
+                        when="reported"
+                        error={fieldErrors[`${mesa.id}-horas`] ?? null}
+                        testId={`mesa-horas-${mesa.id}`}
+                      />
+                      <NumberField
+                        id={`${mesa.id}-minutos`}
+                        label="Minutos"
+                        value={mesa.minutes}
+                        onChange={(minutes) => {
+                          setMesas((current) =>
+                            current.map((item) => (item.id === mesa.id ? { ...item, minutes } : item))
+                          )
+                          forgetIssue(`${mesa.id}-minutos`)
+                        }}
+                        placeholder="0"
+                        when="reported"
+                        error={fieldErrors[`${mesa.id}-minutos`] ?? null}
+                        testId={`mesa-minutos-${mesa.id}`}
+                      />
+                      <NumberField
+                        id={`${mesa.id}-preco`}
+                        label="Preço (R$/kg)"
+                        value={mesa.price}
+                        onChange={(price) => {
+                          setMesas((current) => current.map((item) => (item.id === mesa.id ? { ...item, price } : item)))
+                          forgetIssue(`${mesa.id}-preco`)
+                        }}
+                        placeholder="80"
+                        when="reported"
+                        error={fieldErrors[`${mesa.id}-preco`] ?? null}
+                        testId={`mesa-preco-${mesa.id}`}
+                      />
+                      <NumberField
+                        id={`${mesa.id}-peso`}
+                        label="Peso (g)"
+                        value={mesa.grams}
+                        onChange={(gramsDaMesa) => {
+                          setMesas((current) =>
+                            current.map((item) => (item.id === mesa.id ? { ...item, grams: gramsDaMesa } : item))
+                          )
+                          forgetIssue(`${mesa.id}-peso`)
+                        }}
+                        placeholder="12"
+                        when="reported"
+                        error={fieldErrors[`${mesa.id}-peso`] ?? null}
+                        testId={`mesa-peso-${mesa.id}`}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
             <div
               className={`grid gap-3 ${
                 mode === "lote" && colorMode === "unica"
@@ -539,10 +767,10 @@ function CalculadoraEditor({
                     : "sm:grid-cols-2"
               }`}
             >
-              {mode === "lote" ? (
+              {ficha.copias ? (
                 <NumberField
                   id="copias"
-                  label="Cópias na mesa"
+                  label={ficha.copias}
                   value={copies}
                   onChange={(value) => {
                     setCopies(value)
@@ -581,10 +809,10 @@ function CalculadoraEditor({
                 error={fieldErrors.minutos ?? null}
                 testId="minutos"
               />
-              {colorMode === "unica" ? (
+              {ficha.peso && colorMode === "unica" ? (
                 <NumberField
                   id="peso"
-                  label={mode === "peca" ? "Peso da peça (g)" : "Peso da mesa (g)"}
+                  label={ficha.peso ?? ""}
                   value={grams}
                   onChange={(value) => {
                     setGrams(value)
@@ -597,7 +825,9 @@ function CalculadoraEditor({
                 />
               ) : null}
             </div>
+            )}
 
+            {mesas.length === 0 ? (
             <div className="grid gap-3">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="legenda">{colorMode === "unica" ? "Filamento" : "Filamentos do objeto"}</h2>
@@ -630,10 +860,14 @@ function CalculadoraEditor({
                 ))
               )}
             </div>
+            ) : null}
+            <Button type="button" variant="outline" className="h-11" onClick={incluirMesa} data-testid="adicionar-mesa">
+              Adicionar mesa
+            </Button>
 
             <NumberField
               id="mao-de-obra"
-              label="Mão de obra (%)"
+              label={ficha.maoDeObra}
               value={labor}
               onChange={(value) => {
                 setLabor(value)
@@ -702,8 +936,13 @@ function CalculadoraEditor({
             </ul>
           ) : null}
 
-          {notes.length > 0 ? (
+          {notes.length > 0 || avisoCopias ? (
             <ul className="grid gap-2 text-sm text-muted-foreground" data-testid="avisos">
+              {avisoCopias ? (
+                <li className="lavagem p-2" data-testid="aviso-copias">
+                  {avisoCopias}
+                </li>
+              ) : null}
               {notes.map((note) => (
                 <li key={note} className="lavagem p-2">
                   {note}
