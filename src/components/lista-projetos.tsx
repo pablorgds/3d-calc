@@ -7,13 +7,20 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { calculate, draftToCalcInput, formatBRL } from "@/lib/custo"
 import { useLeitura } from "@/lib/impressora"
+import type { PrinterStore } from "@/lib/impressora-store"
+import type { Project } from "@/lib/projetos-store"
 import { deleteProject, duplicateProject } from "@/lib/projetos"
 import { descricaoProjeto, vistaCarregamento } from "@/lib/vistas"
 import { atrasoLista } from "@/lib/movimento"
 import { cn } from "cn"
 
-export function ListaProjetos() {
-  const leitura = useLeitura()
+export function ListaProjetos({
+  inicial = null,
+}: {
+  inicial?: { printers: PrinterStore; projects: Project[] } | null
+}) {
+  const aoVivo = useLeitura()
+  const leitura = aoVivo.status === "lendo" && inicial ? { status: "pronto" as const, ...inicial } : aoVivo
   const [pendingDelete, setPendingDelete] = useState<string | null>(null)
 
   if (leitura.status === "erro") {

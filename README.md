@@ -28,4 +28,4 @@ O [AGENTS.md](AGENTS.md) é o mapa para quem altera o código. O detalhe está e
 
 ## Backlog
 
-Ideias para depois, ainda sem plano: [`.specs/BACKLOG.md`](.specs/BACKLOG.md). Estoque de filamentos, cliente do projeto, login, orçamento em PDF ou texto, refugo, impressão falha, purge, mão de obra por hora e tarifa diferente por projeto.
+Ideias para depois, ainda sem plano: [`.specs/BACKLOG.md`](.specs/BACKLOG.md). Estoque de filamentos, cliente do projeto, orçamento em PDF ou texto, refugo, impressão falha, purge, mão de obra por hora e tarifa diferente por projeto.

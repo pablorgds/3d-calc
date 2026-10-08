@@ -1,6 +1,9 @@
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
+import { cookies } from "next/headers"
 import { SiteHeader } from "@/components/site-header"
+import { tokenDoCookie } from "@/lib/acesso"
+import { abrirBancoDoAmbiente } from "@/lib/banco"
 import "./globals.css"
 
 const geistSans = Geist({
@@ -22,14 +25,16 @@ export const metadata: Metadata = {
     "Precificação de impressão 3D: custo por peça e por lote, projetos no banco deste computador e mais de uma impressora.",
 }
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const token = tokenDoCookie((await cookies()).toString())
+  const sessao = token ? await abrirBancoDoAmbiente().lerSessao(token) : null
   return (
     <html
       lang="pt-BR"
       className={`${geistSans.variable} ${geistMono.variable} antialiased`}
     >
       <body className="flex flex-col">
-        <SiteHeader />
+        <SiteHeader sair={Boolean(sessao)} />
         {children}
       </body>
     </html>

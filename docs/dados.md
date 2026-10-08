@@ -1,6 +1,6 @@
 # Dados no banco
 
-Impressoras e projetos ficam no Postgres do volume `custo-chapa-pg`. Não há conta. O navegador ainda guarda as chaves `custo-chapa-impressora` e `custo-chapa-projetos`; a primeira leitura copia as duas para o Postgres só enquanto o banco ainda é a semente.
+Impressoras e projetos ficam no Postgres do volume `custo-chapa-pg`. Cada conta tem as próprias impressoras e os próprios projetos. O navegador ainda guarda as chaves `custo-chapa-impressora` e `custo-chapa-projetos`; a primeira leitura autenticada de `pablorgds@gmail.com` copia as duas para o Postgres só enquanto essa conta ainda é a semente.
 
 | Chave | Arquivo puro | Adaptador |
 | --- | --- | --- |

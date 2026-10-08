@@ -29,6 +29,8 @@ import { ganharMesa, idAoSalvar, perderMesa } from "@/lib/projetos-store"
 import {
   avisoCopiasProduto,
   fichaCalculadora,
+  FRASE_AUSENTE,
+  FRASE_GRAVAR,
   FRASE_VARIAS_CORES,
   frasesCalculadora,
   textoDeTotal,
@@ -182,12 +184,14 @@ function ColorEditor({
   )
 }
 
-function CalculadoraLoading({ tipo }: { tipo: TipoMontagem }) {
+function CalculadoraLoading({ tipo, ausente }: { tipo: TipoMontagem; ausente?: boolean }) {
   return (
     <main className="coluna coluna-unica py-8" data-motion={tipo}>
       <header className="cabecalho-pagina">
         <h1 className="titulo-pagina">Calculadora</h1>
         <p className="lede text-muted-foreground">{vistaCarregamento("calculadora", "lendo").titulo}</p>
+        <p>{FRASE_GRAVAR}</p>
+        {ausente ? <p>{FRASE_AUSENTE}</p> : null}
       </header>
     </main>
   )
@@ -204,11 +208,11 @@ function CalculadoraErro({ tipo }: { tipo: TipoMontagem }) {
   )
 }
 
-export function Calculadora({ projectId }: { projectId: string | null }) {
+export function Calculadora({ projectId, ausente = false }: { projectId: string | null; ausente?: boolean }) {
   const leitura = useLeitura()
   const tipo = useMovimento()
   if (leitura.status === "erro") return <CalculadoraErro tipo={tipo} />
-  if (leitura.status !== "pronto") return <CalculadoraLoading tipo={tipo} />
+  if (leitura.status !== "pronto") return <CalculadoraLoading tipo={tipo} ausente={ausente} />
   const project = projectId ? (leitura.projects.find((item) => item.id === projectId) ?? null) : null
   const marca = project
     ? `${project.updatedAt}:${project.mesas?.length ?? 0}:${project.colors.length}:${project.hours}:${project.mode}`

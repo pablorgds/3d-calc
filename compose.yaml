@@ -20,6 +20,7 @@ services:
     command: ["npm", "run", "dev"]
     environment:
       DATABASE_URL: postgresql://custo:custo@postgres:5432/custo_chapa
+      SENHA_ADMIN: ${SENHA_ADMIN:-}
     ports:
       - "4317:4317"
     volumes:

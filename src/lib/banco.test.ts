@@ -11,7 +11,35 @@ import { serializePrinterStore, type PrinterStore } from "./impressora-store.ts"
 import type { Project } from "./projetos-store.ts"
 
 const { idAoSalvar, serializeProjects } = await import("./projetos-store.ts")
-const { abrirBanco, abrirBancoDoAmbiente } = await import("./banco.ts")
+const { abrirBanco, abrirBancoDoAmbiente, comConta } = await import("./banco.ts")
+
+let contaIdProva = ""
+
+function envolver<T extends object>(banco: T): T {
+  return new Proxy(banco, {
+    get(alvo, prop, receptor) {
+      const valor = Reflect.get(alvo, prop, receptor)
+      if (typeof valor !== "function") return valor
+      const direto = new Set([
+        "fechar",
+        "garantirPrimeiraConta",
+        "criarConta",
+        "entrar",
+        "lerSessao",
+        "apagarSessao",
+        "redefinirSenha",
+        "listarOutrasContas",
+        "contarContas",
+      ])
+      if (direto.has(String(prop)) || !contaIdProva) return valor
+      return (...args: unknown[]) => comConta(contaIdProva, () => (valor as (...valores: unknown[]) => unknown).apply(alvo, args))
+    },
+  })
+}
+
+function bancoProva() {
+  return envolver(abrirBanco(url))
+}
 
 type Resultado =
   | { status: "ok"; printers: PrinterStore; projects: Project[] }
@@ -98,22 +126,34 @@ test.describe("banco", { concurrency: 1 }, () => {
     const porta = stdout.match(/:(\d+)/)?.[1]
     if (!porta) throw new Error(stdout)
     url = `postgresql://custo:custo@127.0.0.1:${porta}/custo_chapa`
-    ok(await abrirBanco(url).ler())
   }, { timeout: 180_000 })
 
   test.beforeEach(async () => {
-    await sql("TRUNCATE impressora_ativa, cor, mesa, projeto, impressora")
-    await sql("DROP TRIGGER IF EXISTS rejeita_falha_copia ON projeto")
-    await sql("DROP TRIGGER IF EXISTS rejeita_mesa ON mesa")
+    const client = new Client({ connectionString: url })
+    await client.connect()
+    try {
+      const existe = await client.query<{ nome: string | null }>("SELECT to_regclass('public.conta') AS nome")
+      if (existe.rows[0]?.nome) {
+        await client.query("DROP TRIGGER IF EXISTS rejeita_falha_copia ON projeto")
+        await client.query("DROP TRIGGER IF EXISTS rejeita_mesa ON mesa")
+        await client.query("DROP TRIGGER IF EXISTS rejeita_conta_nova ON impressora")
+        await client.query("TRUNCATE sessao, impressora_ativa, cor, mesa, projeto, impressora, conta")
+      }
+    } finally {
+      await client.end()
+    }
+    const criada = await bancoProva().garantirPrimeiraConta("segredo-inicial")
+    if (criada.status !== "criada" && criada.status !== "ja-existe") throw new Error(criada.status)
+    contaIdProva = criada.id
   })
 
   test.after(async () => {
-    await abrirBanco(url).fechar()
+    await bancoProva().fechar()
     await exec("docker", ["rm", "-f", container], { windowsHide: true }).catch(() => undefined)
   })
 
   test("semente k2 pro", async () => {
-    const lido = ok(await abrirBanco(url).ler())
+    const lido = ok(await bancoProva().ler())
     assert.equal(lido.printers.activeId, "k2-pro")
     assert.equal(lido.printers.printers.length, 1)
     assert.equal(lido.printers.printers[0].id, "k2-pro")
@@ -126,29 +166,29 @@ test.describe("banco", { concurrency: 1 }, () => {
 
   test("rele o projeto gravado", async () => {
     const salvo = projeto()
-    ok(await abrirBanco(url).gravarProjeto(salvo))
-    const lido = ok(await abrirBanco(url).ler())
+    ok(await bancoProva().gravarProjeto(salvo))
+    const lido = ok(await bancoProva().ler())
     assert.deepEqual(lido.projects[0], salvo)
   })
 
   test("projeto sobrevive a outro pool", async () => {
-    const primeiro = abrirBanco(url)
+    const primeiro = bancoProva()
     ok(await primeiro.gravarProjeto(projeto({ id: "persiste" })))
     await primeiro.fechar()
-    const lido = ok(await abrirBanco(url).ler())
+    const lido = ok(await bancoProva().ler())
     assert.ok(lido.projects.some((item) => item.id === "persiste"))
   })
 
   test("navegador limpo mantem o projeto", async () => {
-    ok(await abrirBanco(url).gravarProjeto(projeto()))
-    const lido = ok(await abrirBanco(url).ler({ impressora: null, projetos: null }))
+    ok(await bancoProva().gravarProjeto(projeto()))
+    const lido = ok(await bancoProva().ler({ impressora: null, projetos: null }))
     assert.equal(lido.projects[0]?.id, "p1")
   })
 
   test("texto digitado inclusive vazio", async () => {
-    ok(await abrirBanco(url).ler())
+    ok(await bancoProva().ler())
     ok(
-      await abrirBanco(url).atualizarImpressora("k2-pro", {
+      await bancoProva().atualizarImpressora("k2-pro", {
         watts: "",
         energyPrice: "",
         printerPrice: "",
@@ -156,7 +196,7 @@ test.describe("banco", { concurrency: 1 }, () => {
       })
     )
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({
           copies: "",
           hours: "",
@@ -166,7 +206,7 @@ test.describe("banco", { concurrency: 1 }, () => {
         })
       )
     )
-    const lido = ok(await abrirBanco(url).ler())
+    const lido = ok(await bancoProva().ler())
     const impressora = lido.printers.printers[0]
     assert.equal(impressora?.watts, "")
     assert.equal(impressora?.energyPrice, "")
@@ -182,18 +222,18 @@ test.describe("banco", { concurrency: 1 }, () => {
   })
 
   test("segunda gravacao do mesmo id", async () => {
-    ok(await abrirBanco(url).gravarProjeto(projeto({ name: "Um", copies: "1" })))
-    ok(await abrirBanco(url).gravarProjeto(projeto({ name: "Dois", copies: "8" })))
-    const lido = ok(await abrirBanco(url).ler())
+    ok(await bancoProva().gravarProjeto(projeto({ name: "Um", copies: "1" })))
+    ok(await bancoProva().gravarProjeto(projeto({ name: "Dois", copies: "8" })))
+    const lido = ok(await bancoProva().ler())
     assert.equal(lido.projects.length, 1)
     assert.equal(lido.projects[0]?.name, "Dois")
     assert.equal(lido.projects[0]?.copies, "8")
   })
 
   test("duplicar projeto", async () => {
-    ok(await abrirBanco(url).gravarProjeto(projeto()))
-    ok(await abrirBanco(url).duplicarProjeto("p1", "p2", 99))
-    const lido = ok(await abrirBanco(url).ler())
+    ok(await bancoProva().gravarProjeto(projeto()))
+    ok(await bancoProva().duplicarProjeto("p1", "p2", 99))
+    const lido = ok(await bancoProva().ler())
     const copia = lido.projects.find((item) => item.id === "p2")
     assert.ok(copia)
     assert.equal(copia?.name, "Suporte (cópia)")
@@ -206,9 +246,9 @@ test.describe("banco", { concurrency: 1 }, () => {
   })
 
   test("apagar projeto zera as cores", async () => {
-    ok(await abrirBanco(url).gravarProjeto(projeto()))
-    ok(await abrirBanco(url).apagarProjeto("p1"))
-    const lido = ok(await abrirBanco(url).ler())
+    ok(await bancoProva().gravarProjeto(projeto()))
+    ok(await bancoProva().apagarProjeto("p1"))
+    const lido = ok(await bancoProva().ler())
     assert.equal(
       lido.projects.some((item) => item.id === "p1"),
       false
@@ -218,7 +258,7 @@ test.describe("banco", { concurrency: 1 }, () => {
   })
 
   test("remover ativa marca a primeira restante", async () => {
-    const banco = abrirBanco(url)
+    const banco = bancoProva()
     ok(await banco.ler())
     ok(await banco.adicionarImpressora("a"))
     ok(await banco.adicionarImpressora("b"))
@@ -233,7 +273,7 @@ test.describe("banco", { concurrency: 1 }, () => {
   })
 
   test("recusa apagar a ultima impressora", async () => {
-    const banco = abrirBanco(url)
+    const banco = bancoProva()
     ok(await banco.ler())
     ok(await banco.removerImpressora("k2-pro"))
     const lido = ok(await banco.ler())
@@ -244,7 +284,7 @@ test.describe("banco", { concurrency: 1 }, () => {
   })
 
   test("nova impressora nasce zerada", async () => {
-    const banco = abrirBanco(url)
+    const banco = bancoProva()
     ok(await banco.ler())
     ok(await banco.adicionarImpressora("nova"))
     const lido = ok(await banco.ler())
@@ -258,7 +298,7 @@ test.describe("banco", { concurrency: 1 }, () => {
   })
 
   test("rejeita projeto sem id ou mode", async () => {
-    const banco = abrirBanco(url)
+    const banco = bancoProva()
     ok(await banco.ler())
     assert.equal((await banco.gravarProjeto({ name: "x", mode: "lote" })).status, "rejeitado")
     assert.equal((await banco.gravarProjeto({ id: "x", mode: "tabela", name: "x" })).status, "rejeitado")
@@ -267,8 +307,8 @@ test.describe("banco", { concurrency: 1 }, () => {
   })
 
   test("projeto com impressora ausente", async () => {
-    ok(await abrirBanco(url).gravarProjeto(projeto({ printerId: "nao-existe" })))
-    const lido = ok(await abrirBanco(url).ler())
+    ok(await bancoProva().gravarProjeto(projeto({ printerId: "nao-existe" })))
+    const lido = ok(await bancoProva().ler())
     assert.equal(lido.projects[0]?.printerId, "nao-existe")
     assert.equal(
       lido.printers.printers.some((item) => item.id === "nao-existe"),
@@ -277,7 +317,7 @@ test.describe("banco", { concurrency: 1 }, () => {
   })
 
   test("url projeto marca a impressora", async () => {
-    const banco = abrirBanco(url)
+    const banco = bancoProva()
     ok(await banco.ler())
     ok(await banco.adicionarImpressora("ender"))
     ok(await banco.gravarProjeto(projeto({ printerId: "ender" })))
@@ -290,9 +330,9 @@ test.describe("banco", { concurrency: 1 }, () => {
   })
 
   test("copia projetos da semente", async () => {
-    ok(await abrirBanco(url).ler())
+    ok(await bancoProva().ler())
     const lido = ok(
-      await abrirBanco(url).ler({
+      await bancoProva().ler({
         impressora: null,
         projetos: serializeProjects([projeto({ name: "Copia" })]),
       })
@@ -302,25 +342,25 @@ test.describe("banco", { concurrency: 1 }, () => {
   })
 
   test("copia impressoras da semente", async () => {
-    ok(await abrirBanco(url).ler())
+    ok(await bancoProva().ler())
     const loja: PrinterStore = {
       activeId: "ender",
       printers: [{ id: "ender", name: "Ender", watts: "9", energyPrice: "8", printerPrice: "7", lifeHours: "6" }],
     }
-    const lido = ok(await abrirBanco(url).ler({ impressora: serializePrinterStore(loja), projetos: null }))
+    const lido = ok(await bancoProva().ler({ impressora: serializePrinterStore(loja), projetos: null }))
     assert.equal(lido.printers.activeId, "ender")
     assert.equal(lido.printers.printers[0]?.name, "Ender")
     assert.equal(lido.projects.length, 0)
   })
 
   test("copia as duas chaves", async () => {
-    ok(await abrirBanco(url).ler())
+    ok(await bancoProva().ler())
     const loja: PrinterStore = {
       activeId: "ender",
       printers: [{ id: "ender", name: "Ender", watts: "9", energyPrice: "8", printerPrice: "7", lifeHours: "6" }],
     }
     const lido = ok(
-      await abrirBanco(url).ler({
+      await bancoProva().ler({
         impressora: serializePrinterStore(loja),
         projetos: serializeProjects([projeto({ name: "Junto", printerId: "ender" })]),
       })
@@ -330,7 +370,7 @@ test.describe("banco", { concurrency: 1 }, () => {
   })
 
   test("falha da copia mantem a semente", async () => {
-    const banco = abrirBanco(url)
+    const banco = bancoProva()
     ok(await banco.ler())
     await sql(`CREATE OR REPLACE FUNCTION rejeita_falha_copia() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
@@ -377,7 +417,7 @@ $$`)
   })
 
   test("nao copia fora da semente", async () => {
-    const banco = abrirBanco(url)
+    const banco = bancoProva()
     ok(await banco.ler())
     ok(await banco.atualizarImpressora("k2-pro", { name: "Editada" }))
     const loja: PrinterStore = {
@@ -395,19 +435,19 @@ $$`)
   })
 
   test("id duplicado fica o primeiro", async () => {
-    ok(await abrirBanco(url).ler())
+    ok(await bancoProva().ler())
     const bruto = JSON.stringify({
       version: 1,
       projects: [projeto({ name: "Primeiro", copies: "4" }), projeto({ name: "Segundo", copies: "9" })],
     })
-    const lido = ok(await abrirBanco(url).ler({ impressora: null, projetos: bruto }))
+    const lido = ok(await bancoProva().ler({ impressora: null, projetos: bruto }))
     assert.equal(lido.projects.length, 1)
     assert.equal(lido.projects[0]?.name, "Primeiro")
     assert.equal(lido.projects[0]?.copies, "4")
   })
 
   test("exatamente uma impressora ativa", async () => {
-    const banco = abrirBanco(url)
+    const banco = bancoProva()
     ok(await banco.ler())
     ok(await banco.adicionarImpressora("ender"))
     const ativas = await sql<{ impressora_id: string }>("SELECT impressora_id FROM impressora_ativa")
@@ -420,7 +460,7 @@ $$`)
   })
 
   test("impressoras na ordem de insercao", async () => {
-    const banco = abrirBanco(url)
+    const banco = bancoProva()
     ok(await banco.ler())
     ok(await banco.adicionarImpressora("a"))
     ok(await banco.adicionarImpressora("b"))
@@ -433,7 +473,7 @@ $$`)
   })
 
   test("projetos por data e nome", async () => {
-    const banco = abrirBanco(url)
+    const banco = bancoProva()
     ok(await banco.gravarProjeto(projeto({ id: "z", name: "zeta", updatedAt: 10 })))
     ok(await banco.gravarProjeto(projeto({ id: "a", name: "ação", updatedAt: 10 })))
     ok(await banco.gravarProjeto(projeto({ id: "u", name: "azul", updatedAt: 10 })))
@@ -446,7 +486,7 @@ $$`)
   })
 
   test("duas gravacoes em paralelo", async () => {
-    const banco = abrirBanco(url)
+    const banco = bancoProva()
     await Promise.all([
       banco.gravarProjeto(projeto({ id: "um", name: "Um" })),
       banco.gravarProjeto(projeto({ id: "dois", name: "Dois" })),
@@ -478,17 +518,16 @@ $$`)
 
   test("leitura e escrita sem cookie", async () => {
     const bancoSrc = fs.readFileSync(path.join(root, "src/lib/banco.ts"), "utf8")
-    const acoesSrc = fs.readFileSync(path.join(root, "src/lib/acoes.ts"), "utf8")
     assert.equal(bancoSrc.includes("cookies("), false)
-    assert.equal(acoesSrc.includes("cookies("), false)
     const banco = abrirBanco(url)
-    ok(await banco.gravarProjeto(projeto({ id: "sem-cookie", name: "Sem cookie" })))
-    const lido = ok(await banco.ler())
-    assert.equal(lido.projects.find((item) => item.id === "sem-cookie")?.name, "Sem cookie")
+    const gravado = await banco.gravarProjeto(projeto({ id: "sem-cookie", name: "Sem cookie" }))
+    assert.notEqual(gravado.status, "ok")
+    const lido = await banco.ler()
+    assert.notEqual(lido.status, "ok")
   })
 
   test("duas remocoes simultaneas", async () => {
-    const banco = abrirBanco(url)
+    const banco = bancoProva()
     ok(await banco.ler())
     ok(await banco.adicionarImpressora("segunda"))
     const antes = ok(await banco.ler())
@@ -501,7 +540,7 @@ $$`)
   })
 
   test("id de cor no projeto", async () => {
-    const banco = abrirBanco(url)
+    const banco = bancoProva()
     ok(await banco.gravarProjeto(projeto({ id: "a", colors: [{ id: "c1", name: "A", hex: "#111111", price: "1", grams: "1" }] })))
     ok(await banco.gravarProjeto(projeto({ id: "b", colors: [{ id: "c1", name: "B", hex: "#222222", price: "2", grams: "2" }] })))
     ok(
@@ -529,7 +568,7 @@ $$`)
     const anterior = process.env.DATABASE_URL
     process.env.DATABASE_URL = url
     try {
-      const banco = abrirBancoDoAmbiente()
+      const banco = envolver(abrirBancoDoAmbiente())
       ok(await banco.gravarProjeto(projeto({ id: "via-env", name: "Via env" })))
       const lido = ok(await banco.ler())
       assert.equal(lido.projects.find((item) => item.id === "via-env")?.name, "Via env")
@@ -547,9 +586,9 @@ $$`)
   }
 
   async function usarImpressora(printer: { watts: string; energyPrice: string; printerPrice: string; lifeHours: string }) {
-    ok(await abrirBanco(url).ler())
+    ok(await bancoProva().ler())
     ok(
-      await abrirBanco(url).atualizarImpressora("k2-pro", {
+      await bancoProva().atualizarImpressora("k2-pro", {
         watts: printer.watts,
         energyPrice: printer.energyPrice,
         printerPrice: printer.printerPrice,
@@ -575,7 +614,7 @@ $$`)
 
   test("abre mesas por posicao", async () => {
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({
           copies: "1",
           hours: "",
@@ -589,7 +628,7 @@ $$`)
         })
       )
     )
-    const lido = ok(await abrirBanco(url).ler())
+    const lido = ok(await bancoProva().ler())
     const mesas = lido.projects[0]?.mesas ?? []
     assert.equal(mesas[0]?.name, "PLA preto")
     assert.equal(mesas[1]?.name, "PETG")
@@ -607,7 +646,7 @@ $$`)
 
   test("varias cores nao grava mesa", async () => {
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({
           hours: "1",
           minutes: "0",
@@ -620,9 +659,9 @@ $$`)
         })
       )
     )
-    const resultado = await abrirBanco(url).adicionarMesa("p1", "nova")
+    const resultado = await bancoProva().adicionarMesa("p1", "nova")
     assert.equal(resultado.status, "recusado")
-    const lido = ok(await abrirBanco(url).ler())
+    const lido = ok(await bancoProva().ler())
     assert.equal(lido.projects[0]?.hours, "1")
     assert.equal(await contagem("cor", "p1"), 2)
     assert.equal(await contagem("mesa", "p1"), 0)
@@ -630,7 +669,7 @@ $$`)
 
   test("primeira mesa e a mesa vazia", async () => {
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({
           mode: "peca",
           copies: "1",
@@ -642,8 +681,8 @@ $$`)
         })
       )
     )
-    ok(await abrirBanco(url).adicionarMesa("p1", "vazia"))
-    const lido = ok(await abrirBanco(url).ler())
+    ok(await bancoProva().adicionarMesa("p1", "vazia"))
+    const lido = ok(await bancoProva().ler())
     const salvo = lido.projects[0]
     assert.equal(salvo?.mesas?.[0]?.hours, "1")
     assert.equal(salvo?.mesas?.[0]?.minutes, "0")
@@ -666,7 +705,7 @@ $$`)
   test("volta a peca 2.52", async () => {
     await usarImpressora(cem)
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({
           mode: "peca",
           copies: "1",
@@ -678,9 +717,9 @@ $$`)
         })
       )
     )
-    ok(await abrirBanco(url).adicionarMesa("p1", "vazia"))
-    ok(await abrirBanco(url).removerMesa("p1", "vazia"))
-    const lido = ok(await abrirBanco(url).ler())
+    ok(await bancoProva().adicionarMesa("p1", "vazia"))
+    ok(await bancoProva().removerMesa("p1", "vazia"))
+    const lido = ok(await bancoProva().ler())
     const salvo = lido.projects[0]
     assert.ok(salvo)
     assert.equal(salvo.mode, "peca")
@@ -697,7 +736,7 @@ $$`)
   test("remove mesa aberta e mantem as fechadas", async () => {
     await usarImpressora(mil)
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({
           copies: "1",
           labor: "0",
@@ -709,8 +748,8 @@ $$`)
         })
       )
     )
-    ok(await abrirBanco(url).removerMesa("p1", "aberta"))
-    const lido = ok(await abrirBanco(url).ler())
+    ok(await bancoProva().removerMesa("p1", "aberta"))
+    const lido = ok(await bancoProva().ler())
     const salvo = lido.projects[0]
     assert.ok(salvo)
     assert.equal(salvo.mesas?.length, 2)
@@ -722,7 +761,7 @@ $$`)
   test("lote vira mesa com copias 4", async () => {
     await usarImpressora(cem)
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({
           mode: "lote",
           copies: "4",
@@ -734,9 +773,9 @@ $$`)
         })
       )
     )
-    ok(await abrirBanco(url).adicionarMesa("p1", "vazia"))
-    ok(await abrirBanco(url).removerMesa("p1", "vazia"))
-    const lido = ok(await abrirBanco(url).ler())
+    ok(await bancoProva().adicionarMesa("p1", "vazia"))
+    ok(await bancoProva().removerMesa("p1", "vazia"))
+    const lido = ok(await bancoProva().ler())
     const salvo = lido.projects[0]
     assert.ok(salvo)
     assert.equal(salvo.mesas?.length, 1)
@@ -749,7 +788,7 @@ $$`)
   test("remove mesa fechada e recalcula", async () => {
     await usarImpressora(mil)
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({
           copies: "1",
           labor: "0",
@@ -761,8 +800,8 @@ $$`)
         })
       )
     )
-    ok(await abrirBanco(url).removerMesa("p1", "b"))
-    const lido = ok(await abrirBanco(url).ler())
+    ok(await bancoProva().removerMesa("p1", "b"))
+    const lido = ok(await bancoProva().ler())
     const salvo = lido.projects[0]
     assert.ok(salvo)
     const valores = precos(salvo, mil)
@@ -772,7 +811,7 @@ $$`)
 
   test("uma mesa com copias 1 vira impressao", async () => {
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({
           copies: "1",
           hours: "",
@@ -786,8 +825,8 @@ $$`)
         })
       )
     )
-    ok(await abrirBanco(url).removerMesa("p1", "sai"))
-    const lido = ok(await abrirBanco(url).ler())
+    ok(await bancoProva().removerMesa("p1", "sai"))
+    const lido = ok(await bancoProva().ler())
     const salvo = lido.projects[0]
     assert.equal(salvo?.mode, "peca")
     assert.equal(salvo?.colorMode, "unica")
@@ -804,7 +843,7 @@ $$`)
 
   test("gravar mesas limpa cor", async () => {
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({
           mode: "lote",
           hours: "9",
@@ -819,7 +858,7 @@ $$`)
         })
       )
     )
-    const lido = ok(await abrirBanco(url).ler())
+    const lido = ok(await bancoProva().ler())
     const salvo = lido.projects[0]
     assert.equal(salvo?.hours, "")
     assert.equal(salvo?.minutes, "")
@@ -832,7 +871,7 @@ $$`)
 
   test("falha ao gravar mesas volta o projeto", async () => {
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({
           hours: "1",
           minutes: "0",
@@ -848,8 +887,8 @@ $$`)
     await sql(
       `CREATE TRIGGER rejeita_mesa BEFORE INSERT ON mesa FOR EACH ROW EXECUTE FUNCTION rejeita_mesa()`
     )
-    await assert.rejects(abrirBanco(url).gravarProjeto(projeto({ hours: "", minutes: "", grams: "", colors: [], mesas: [mesa()] })))
-    const lido = ok(await abrirBanco(url).ler())
+    await assert.rejects(bancoProva().gravarProjeto(projeto({ hours: "", minutes: "", grams: "", colors: [], mesas: [mesa()] })))
+    const lido = ok(await bancoProva().ler())
     assert.equal(lido.projects[0]?.hours, "1")
     assert.equal(lido.projects[0]?.minutes, "0")
     assert.equal(await contagem("cor", "p1"), 1)
@@ -858,7 +897,7 @@ $$`)
 
   test("gravacao atrasada nao commita", async () => {
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({
           updatedAt: 20,
           hours: "",
@@ -870,7 +909,7 @@ $$`)
       )
     )
     ok(
-      await abrirBanco(url).gravarProjeto({
+      await bancoProva().gravarProjeto({
         ...projeto({
           updatedAt: 30,
           colorMode: "multicolor",
@@ -883,14 +922,14 @@ $$`)
         expectedUpdatedAt: 10,
       })
     )
-    let lido = ok(await abrirBanco(url).ler())
+    let lido = ok(await bancoProva().ler())
     assert.equal(await contagem("mesa", "p1"), 2)
     assert.equal(await contagem("cor", "p1"), 0)
     assert.equal(lido.projects[0]?.updatedAt, 20)
 
-    ok(await abrirBanco(url).apagarProjeto("p1"))
+    ok(await bancoProva().apagarProjeto("p1"))
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({
           updatedAt: 20,
           colorMode: "multicolor",
@@ -902,7 +941,7 @@ $$`)
       )
     )
     ok(
-      await abrirBanco(url).gravarProjeto({
+      await bancoProva().gravarProjeto({
         ...projeto({
           updatedAt: 30,
           hours: "",
@@ -914,7 +953,7 @@ $$`)
         expectedUpdatedAt: 10,
       })
     )
-    lido = ok(await abrirBanco(url).ler())
+    lido = ok(await bancoProva().ler())
     assert.equal(await contagem("cor", "p1"), 2)
     assert.equal(await contagem("mesa", "p1"), 0)
     assert.equal(lido.projects[0]?.updatedAt, 20)
@@ -923,7 +962,7 @@ $$`)
   test("duplicar projeto de mesas", async () => {
     await usarImpressora(mil)
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({
           name: "Suporte",
           copies: "2",
@@ -936,8 +975,8 @@ $$`)
         })
       )
     )
-    ok(await abrirBanco(url).duplicarProjeto("p1", "p2", 99))
-    const lido = ok(await abrirBanco(url).ler())
+    ok(await bancoProva().duplicarProjeto("p1", "p2", 99))
+    const lido = ok(await bancoProva().ler())
     const copia = lido.projects.find((item) => item.id === "p2")
     assert.ok(copia)
     assert.equal(copia.name, "Suporte (cópia)")
@@ -949,24 +988,24 @@ $$`)
 
   test("apagar projeto apaga mesas", async () => {
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({ id: "a", hours: "", minutes: "", grams: "", colors: [], mesas: [mesa({ id: "a1" }), mesa({ id: "a2" })] })
       )
     )
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({ id: "b", hours: "", minutes: "", grams: "", colors: [], mesas: [mesa({ id: "b1" })] })
       )
     )
-    ok(await abrirBanco(url).apagarProjeto("a"))
+    ok(await bancoProva().apagarProjeto("a"))
     assert.equal(await contagem("mesa", "a"), 0)
     assert.equal(await contagem("mesa", "b"), 1)
   })
 
   test("tabela mesa nasce vazia", async () => {
-    ok(await abrirBanco(url).gravarProjeto(projeto({ hours: "2", minutes: "15" })))
+    ok(await bancoProva().gravarProjeto(projeto({ hours: "2", minutes: "15" })))
     await sql("DROP TABLE mesa")
-    const lido = ok(await abrirBanco(url).ler())
+    const lido = ok(await bancoProva().ler())
     assert.equal(lido.projects[0]?.hours, "2")
     assert.equal(lido.projects[0]?.minutes, "15")
     assert.equal(lido.projects[0]?.colors.length, 1)
@@ -974,8 +1013,8 @@ $$`)
   })
 
   test("projeto ausente nao ganha mesa", async () => {
-    ok(await abrirBanco(url).ler())
-    ok(await abrirBanco(url).adicionarMesa("ausente", "nova"))
+    ok(await bancoProva().ler())
+    ok(await bancoProva().adicionarMesa("ausente", "nova"))
     const projetos = await sql<{ n: number }>("SELECT count(*)::int AS n FROM projeto WHERE id = $1", ["ausente"])
     assert.equal(Number(projetos.rows[0]?.n), 0)
     assert.equal(await contagem("mesa"), 0)
@@ -984,8 +1023,8 @@ $$`)
   test("salvar impressao ausente cria id", async () => {
     const id = idAoSalvar("ausente", true, "criado")
     assert.notEqual(id, "ausente")
-    ok(await abrirBanco(url).gravarProjeto(projeto({ id, mesas: [] })))
-    const lido = ok(await abrirBanco(url).ler())
+    ok(await bancoProva().gravarProjeto(projeto({ id, mesas: [] })))
+    const lido = ok(await bancoProva().ler())
     assert.equal(lido.projects.some((item) => item.id === "ausente"), false)
     assert.equal(lido.projects.some((item) => item.id === id), true)
     assert.equal(await contagem("mesa", id), 0)
@@ -994,7 +1033,7 @@ $$`)
 
   test("id de mesa unico no projeto", async () => {
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({
           copies: "2",
           hours: "",
@@ -1005,32 +1044,32 @@ $$`)
         })
       )
     )
-    const lido = ok(await abrirBanco(url).ler())
+    const lido = ok(await bancoProva().ler())
     assert.equal(lido.projects[0]?.mesas?.length, 1)
     assert.equal(lido.projects[0]?.mesas?.[0]?.hours, "1")
   })
 
   test("mesmo id de mesa em dois projetos", async () => {
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({ id: "a", hours: "", minutes: "", grams: "", colors: [], mesas: [mesa({ id: "placa", hours: "1" })] })
       )
     )
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({ id: "b", hours: "", minutes: "", grams: "", colors: [], mesas: [mesa({ id: "placa", hours: "2" })] })
       )
     )
     assert.equal(await contagem("mesa", "a"), 1)
     assert.equal(await contagem("mesa", "b"), 1)
-    const lido = ok(await abrirBanco(url).ler())
+    const lido = ok(await bancoProva().ler())
     assert.equal(lido.projects.find((item) => item.id === "a")?.mesas?.[0]?.hours, "1")
     assert.equal(lido.projects.find((item) => item.id === "b")?.mesas?.[0]?.hours, "2")
   })
 
   test("nome de mesa vazio gravado", async () => {
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({
           copies: "2",
           hours: "",
@@ -1041,14 +1080,14 @@ $$`)
         })
       )
     )
-    const lido = ok(await abrirBanco(url).ler())
+    const lido = ok(await bancoProva().ler())
     assert.equal(lido.projects[0]?.mesas?.[0]?.name, "")
   })
 
   test("tarifa nova nao regrava o projeto", async () => {
     await usarImpressora(mil)
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({
           copies: "1",
           labor: "0",
@@ -1061,12 +1100,12 @@ $$`)
         })
       )
     )
-    const antes = ok(await abrirBanco(url).ler())
+    const antes = ok(await bancoProva().ler())
     const projetoAntes = antes.projects[0]
     assert.ok(projetoAntes)
     assert.equal(precos(projetoAntes, mil).lot, 4)
-    ok(await abrirBanco(url).atualizarImpressora("k2-pro", { energyPrice: "2" }))
-    const depois = ok(await abrirBanco(url).ler())
+    ok(await bancoProva().atualizarImpressora("k2-pro", { energyPrice: "2" }))
+    const depois = ok(await bancoProva().ler())
     const projetoDepois = depois.projects[0]
     assert.ok(projetoDepois)
     assert.equal(projetoDepois.updatedAt, projetoAntes.updatedAt)
@@ -1074,7 +1113,7 @@ $$`)
   })
 
   test("tabela mesa no schema", async () => {
-    ok(await abrirBanco(url).ler())
+    ok(await bancoProva().ler())
     const colunas = await sql<{ column_name: string; data_type: string; is_nullable: string }>(
       `SELECT column_name, data_type, is_nullable
        FROM information_schema.columns
@@ -1100,23 +1139,490 @@ $$`)
     )
     assert.deepEqual(
       projetoCols.rows.map((row) => row.column_name).sort(),
-      ["color_mode", "copies", "grams", "hours", "id", "labor", "minutes", "mode", "name", "printer_id", "updated_at"]
+      ["color_mode", "conta_id", "copies", "grams", "hours", "id", "labor", "minutes", "mode", "name", "printer_id", "updated_at"]
     )
   })
 
   test("payload sem mesas apaga mesa", async () => {
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({ id: "a", hours: "", minutes: "", grams: "", colors: [], mesas: [mesa({ id: "a1" }), mesa({ id: "a2" })] })
       )
     )
     ok(
-      await abrirBanco(url).gravarProjeto(
+      await bancoProva().gravarProjeto(
         projeto({ id: "b", hours: "", minutes: "", grams: "", colors: [], mesas: [mesa({ id: "b1" })] })
       )
     )
-    ok(await abrirBanco(url).gravarProjeto(projeto({ id: "a", mesas: [] })))
+    ok(await bancoProva().gravarProjeto(projeto({ id: "a", mesas: [] })))
     assert.equal(await contagem("mesa", "a"), 0)
     assert.equal(await contagem("mesa", "b"), 1)
+  })
+
+  test("primeira conta fica com as linhas", async () => {
+    await sql("DROP TABLE IF EXISTS sessao, impressora_ativa, cor, mesa, projeto, impressora, conta CASCADE")
+    await sql(
+      `CREATE TABLE impressora (
+         id text PRIMARY KEY,
+         name text NOT NULL,
+         watts text NOT NULL,
+         energy_price text NOT NULL,
+         printer_price text NOT NULL,
+         life_hours text NOT NULL,
+         posicao integer NOT NULL
+       )`
+    )
+    await sql(
+      `CREATE TABLE impressora_ativa (
+         unico smallint PRIMARY KEY CHECK (unico = 1),
+         impressora_id text NOT NULL REFERENCES impressora (id)
+       )`
+    )
+    await sql(
+      `CREATE TABLE projeto (
+         id text PRIMARY KEY,
+         name text NOT NULL,
+         printer_id text NOT NULL,
+         mode text NOT NULL CHECK (mode IN ('peca', 'lote')),
+         copies text NOT NULL,
+         hours text NOT NULL,
+         minutes text NOT NULL,
+         labor text NOT NULL,
+         updated_at double precision NOT NULL
+       )`
+    )
+    await sql(
+      `CREATE TABLE mesa (
+         projeto_id text NOT NULL REFERENCES projeto (id) ON DELETE CASCADE,
+         id text NOT NULL,
+         hours text NOT NULL,
+         minutes text NOT NULL,
+         name text NOT NULL,
+         hex text NOT NULL,
+         price text NOT NULL,
+         grams text NOT NULL,
+         posicao integer NOT NULL,
+         PRIMARY KEY (projeto_id, id)
+       )`
+    )
+    await sql(
+      `CREATE TABLE cor (
+         projeto_id text NOT NULL REFERENCES projeto (id) ON DELETE CASCADE,
+         id text NOT NULL,
+         name text NOT NULL,
+         hex text NOT NULL,
+         price text NOT NULL,
+         grams text NOT NULL,
+         posicao integer NOT NULL,
+         PRIMARY KEY (projeto_id, id)
+       )`
+    )
+    await sql(
+      "INSERT INTO impressora (id, name, watts, energy_price, printer_price, life_hours, posicao) VALUES ('k2-pro', 'K2 Pro', '150', '1.18', '7979', '3000', 0)"
+    )
+    await sql("INSERT INTO impressora_ativa (unico, impressora_id) VALUES (1, 'k2-pro')")
+    await sql(
+      "INSERT INTO projeto (id, name, printer_id, mode, copies, hours, minutes, labor, updated_at) VALUES ('ja', 'Lote antigo', 'k2-pro', 'lote', '1', '1', '0', '0', 10)"
+    )
+    await sql(
+      "INSERT INTO mesa (projeto_id, id, hours, minutes, name, hex, price, grams, posicao) VALUES ('ja', 'm1', '1', '0', 'PLA', '#111111', '1', '1', 0)"
+    )
+    await sql(
+      "INSERT INTO cor (projeto_id, id, name, hex, price, grams, posicao) VALUES ('ja', 'c1', 'PLA', '#111111', '1', '1', 0)"
+    )
+    const criada = await abrirBanco(url).garantirPrimeiraConta("segredo-inicial")
+    assert.equal(criada.status, "criada")
+    if (criada.status !== "criada") return
+    const contas = await sql<{ email: string; papel: string; n: number }>(
+      "SELECT email, papel, count(*)::int AS n FROM conta GROUP BY email, papel"
+    )
+    assert.equal(contas.rows.length, 1)
+    assert.equal(contas.rows[0]?.email, "pablorgds@gmail.com")
+    assert.equal(contas.rows[0]?.papel, "admin")
+    const impressoras = await sql<{ conta_id: string }>("SELECT conta_id FROM impressora")
+    assert.equal(impressoras.rows[0]?.conta_id, criada.id)
+    const projetos = await sql<{ conta_id: string }>("SELECT conta_id FROM projeto")
+    assert.equal(projetos.rows[0]?.conta_id, criada.id)
+  })
+
+  test("mesa e cor seguem o projeto", async () => {
+    await sql("DROP TABLE IF EXISTS sessao, impressora_ativa, cor, mesa, projeto, impressora, conta CASCADE")
+    await sql(
+      `CREATE TABLE impressora (
+         id text PRIMARY KEY, name text NOT NULL, watts text NOT NULL, energy_price text NOT NULL,
+         printer_price text NOT NULL, life_hours text NOT NULL, posicao integer NOT NULL
+       )`
+    )
+    await sql(
+      `CREATE TABLE impressora_ativa (
+         unico smallint PRIMARY KEY CHECK (unico = 1),
+         impressora_id text NOT NULL REFERENCES impressora (id)
+       )`
+    )
+    await sql(
+      `CREATE TABLE projeto (
+         id text PRIMARY KEY, name text NOT NULL, printer_id text NOT NULL,
+         mode text NOT NULL CHECK (mode IN ('peca', 'lote')),
+         copies text NOT NULL, hours text NOT NULL, minutes text NOT NULL, labor text NOT NULL,
+         updated_at double precision NOT NULL
+       )`
+    )
+    await sql(
+      `CREATE TABLE mesa (
+         projeto_id text NOT NULL REFERENCES projeto (id) ON DELETE CASCADE,
+         id text NOT NULL, hours text NOT NULL, minutes text NOT NULL, name text NOT NULL,
+         hex text NOT NULL, price text NOT NULL, grams text NOT NULL, posicao integer NOT NULL,
+         PRIMARY KEY (projeto_id, id)
+       )`
+    )
+    await sql(
+      `CREATE TABLE cor (
+         projeto_id text NOT NULL REFERENCES projeto (id) ON DELETE CASCADE,
+         id text NOT NULL, name text NOT NULL, hex text NOT NULL, price text NOT NULL,
+         grams text NOT NULL, posicao integer NOT NULL, PRIMARY KEY (projeto_id, id)
+       )`
+    )
+    await sql("INSERT INTO impressora (id, name, watts, energy_price, printer_price, life_hours, posicao) VALUES ('k2-pro', 'K2 Pro', '150', '1.18', '7979', '3000', 0)")
+    await sql("INSERT INTO impressora_ativa (unico, impressora_id) VALUES (1, 'k2-pro')")
+    await sql("INSERT INTO projeto (id, name, printer_id, mode, copies, hours, minutes, labor, updated_at) VALUES ('ja', 'Lote antigo', 'k2-pro', 'lote', '1', '1', '0', '0', 10)")
+    await sql("INSERT INTO mesa (projeto_id, id, hours, minutes, name, hex, price, grams, posicao) VALUES ('ja', 'm1', '1', '0', 'PLA', '#111111', '1', '1', 0)")
+    await sql("INSERT INTO cor (projeto_id, id, name, hex, price, grams, posicao) VALUES ('ja', 'c1', 'PLA', '#111111', '1', '1', 0)")
+    const antesMesa = await sql<{ n: number }>("SELECT count(*)::int AS n FROM mesa")
+    const antesCor = await sql<{ n: number }>("SELECT count(*)::int AS n FROM cor")
+    await abrirBanco(url).garantirPrimeiraConta("segredo-inicial")
+    const depoisMesa = await sql<{ n: number }>("SELECT count(*)::int AS n FROM mesa")
+    const depoisCor = await sql<{ n: number }>("SELECT count(*)::int AS n FROM cor")
+    assert.equal(Number(depoisMesa.rows[0]?.n), Number(antesMesa.rows[0]?.n))
+    assert.equal(Number(depoisCor.rows[0]?.n), Number(antesCor.rows[0]?.n))
+    assert.equal(Number(depoisMesa.rows[0]?.n), 1)
+    assert.equal(Number(depoisCor.rows[0]?.n), 1)
+  })
+
+  test("senha admin ausente vazia ou curta", async () => {
+    for (const senha of [undefined, "", "1234567"] as const) {
+      await sql("TRUNCATE sessao, impressora_ativa, cor, mesa, projeto, impressora, conta")
+      const resultado = await abrirBanco(url).garantirPrimeiraConta(senha)
+      assert.equal(resultado.status, "senha-ruim")
+      const n = await sql<{ n: number }>("SELECT count(*)::int AS n FROM conta")
+      assert.equal(Number(n.rows[0]?.n), 0)
+    }
+  })
+
+  test("senha scrypt sem o texto", async () => {
+    const { scrypt, timingSafeEqual } = await import("node:crypto")
+    const { promisify: promisificar } = await import("node:util")
+    const derivar = promisificar(scrypt)
+    const linha = await sql<{ sal: Buffer; verificador: Buffer; email: string }>(
+      "SELECT sal, verificador, email FROM conta WHERE email = 'pablorgds@gmail.com'"
+    )
+    const sal = linha.rows[0]?.sal
+    const verificador = linha.rows[0]?.verificador
+    assert.ok(sal)
+    assert.ok(verificador)
+    assert.equal(sal.length, 16)
+    assert.equal(verificador.length, 32)
+    const calculado = (await derivar("segredo-inicial", sal, 32, { N: 16384, r: 8, p: 1 })) as Buffer
+    assert.equal(timingSafeEqual(calculado, verificador), true)
+    assert.equal(JSON.stringify(linha.rows).includes("segredo-inicial"), false)
+  })
+
+  test("conta nova nasce k2 pro", async () => {
+    const criada = await abrirBanco(url).criarConta("outra@example.com", "senha-oito")
+    assert.equal(criada.status, "criada")
+    if (criada.status !== "criada") return
+    const email = await sql<{ email: string }>("SELECT email FROM conta WHERE id = $1", [criada.id])
+    assert.equal(email.rows[0]?.email, "outra@example.com")
+    const lido = ok(await comConta(criada.id, () => abrirBanco(url).ler()))
+    assert.equal(lido.printers.printers.length, 1)
+    assert.equal(lido.printers.printers[0]?.id, "k2-pro")
+    assert.equal(lido.printers.printers[0]?.name, "K2 Pro")
+    assert.equal(lido.printers.printers[0]?.watts, "150")
+    assert.equal(lido.printers.printers[0]?.energyPrice, "1.18")
+    assert.equal(lido.printers.printers[0]?.printerPrice, "7979")
+    assert.equal(lido.printers.printers[0]?.lifeHours, "3000")
+    assert.equal(lido.projects.length, 0)
+  })
+
+  test("email duplicado uma conta", async () => {
+    assert.equal((await abrirBanco(url).criarConta("outra@example.com", "senha-oito")).status, "criada")
+    assert.equal((await abrirBanco(url).criarConta("Outra@Example.com", "senha-oito")).status, "duplicado")
+    const n = await sql<{ n: number }>("SELECT count(*)::int AS n FROM conta WHERE lower(email) = 'outra@example.com'")
+    assert.equal(Number(n.rows[0]?.n), 1)
+  })
+
+  test("senha 7 nao cria conta", async () => {
+    assert.equal((await abrirBanco(url).criarConta("curta@example.com", "1234567")).status, "senha-curta")
+    const n = await sql<{ n: number }>("SELECT count(*)::int AS n FROM conta WHERE email = 'curta@example.com'")
+    assert.equal(Number(n.rows[0]?.n), 0)
+  })
+
+  test("senha 8 cria conta", async () => {
+    assert.equal((await abrirBanco(url).criarConta("oito@example.com", "12345678")).status, "criada")
+    const n = await sql<{ n: number }>("SELECT count(*)::int AS n FROM conta WHERE email = 'oito@example.com'")
+    assert.equal(Number(n.rows[0]?.n), 1)
+  })
+
+  test("email sem arroba nao cria conta", async () => {
+    assert.equal((await abrirBanco(url).criarConta("sem-arroba", "senha-oito")).status, "email-invalido")
+    const n = await sql<{ n: number }>("SELECT count(*)::int AS n FROM conta WHERE email = 'sem-arroba'")
+    assert.equal(Number(n.rows[0]?.n), 0)
+  })
+
+  test("rollback nao deixa conta nem impressora", async () => {
+    await sql(`CREATE OR REPLACE FUNCTION rejeita_conta_nova() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'rollback conta';
+END;
+$$`)
+    await sql("CREATE TRIGGER rejeita_conta_nova BEFORE INSERT ON impressora FOR EACH ROW EXECUTE FUNCTION rejeita_conta_nova()")
+    await assert.rejects(() => abrirBanco(url).criarConta("nova@example.com", "senha-oito"))
+    const contas = await sql<{ n: number }>("SELECT count(*)::int AS n FROM conta WHERE email = 'nova@example.com'")
+    assert.equal(Number(contas.rows[0]?.n), 0)
+    const impressoras = await sql<{ n: number }>(
+      "SELECT count(*)::int AS n FROM impressora i JOIN conta c ON c.id = i.conta_id WHERE c.email = 'nova@example.com'"
+    )
+    assert.equal(Number(impressoras.rows[0]?.n), 0)
+  })
+
+  test("dois cadastros do mesmo email", async () => {
+    const resultados = await Promise.all([
+      abrirBanco(url).criarConta("dup@example.com", "senha-oito"),
+      abrirBanco(url).criarConta("dup@example.com", "senha-oito"),
+    ])
+    assert.equal(resultados.filter((item) => item.status === "criada").length, 1)
+    const n = await sql<{ n: number }>("SELECT count(*)::int AS n FROM conta WHERE email = 'dup@example.com'")
+    assert.equal(Number(n.rows[0]?.n), 1)
+  })
+
+  test("copia do navegador so no admin", async () => {
+    const outra = await abrirBanco(url).criarConta("outra@example.com", "senha-oito")
+    assert.equal(outra.status, "criada")
+    if (outra.status !== "criada") return
+    const lido = ok(
+      await comConta(contaIdProva, () =>
+        abrirBanco(url).ler({ impressora: null, projetos: serializeProjects([projeto({ name: "Do navegador" })]) })
+      )
+    )
+    assert.equal(lido.projects.some((item) => item.name === "Do navegador"), true)
+    const daOutra = ok(await comConta(outra.id, () => abrirBanco(url).ler()))
+    assert.equal(daOutra.projects.some((item) => item.name === "Do navegador"), false)
+  })
+
+  test("conta nova nao copia o navegador", async () => {
+    const outra = await abrirBanco(url).criarConta("outra@example.com", "senha-oito")
+    assert.equal(outra.status, "criada")
+    if (outra.status !== "criada") return
+    const lido = ok(
+      await comConta(outra.id, () =>
+        abrirBanco(url).ler({
+          impressora: null,
+          projetos: serializeProjects([projeto({ id: "nav", name: "Nao copia" })]),
+        })
+      )
+    )
+    assert.equal(lido.projects.length, 0)
+    assert.equal(lido.printers.printers[0]?.name, "K2 Pro")
+  })
+
+  test("leitura so os projetos da conta", async () => {
+    const outra = await abrirBanco(url).criarConta("outra@example.com", "senha-oito")
+    assert.equal(outra.status, "criada")
+    if (outra.status !== "criada") return
+    ok(await comConta(outra.id, () => abrirBanco(url).gravarProjeto(projeto({ id: "so", name: "Só da outra" }))))
+    ok(await comConta(contaIdProva, () => abrirBanco(url).gravarProjeto(projeto({ id: "meu", name: "Meu" }))))
+    const lido = ok(await comConta(outra.id, () => abrirBanco(url).ler()))
+    assert.deepEqual(lido.projects.map((item) => item.name), ["Só da outra"])
+  })
+
+  test("admin nao le projeto da outra", async () => {
+    const outra = await abrirBanco(url).criarConta("outra@example.com", "senha-oito")
+    assert.equal(outra.status, "criada")
+    if (outra.status !== "criada") return
+    ok(await comConta(outra.id, () => abrirBanco(url).gravarProjeto(projeto({ id: "so", name: "Só da outra" }))))
+    const lido = ok(await comConta(contaIdProva, () => abrirBanco(url).ler()))
+    assert.equal(lido.projects.some((item) => item.name === "Só da outra"), false)
+  })
+
+  test("projeto alheio nao troca a marcada", async () => {
+    const outra = await abrirBanco(url).criarConta("outra@example.com", "senha-oito")
+    assert.equal(outra.status, "criada")
+    if (outra.status !== "criada") return
+    ok(await comConta(outra.id, () => abrirBanco(url).gravarProjeto(projeto({ id: "alheio", name: "Alheio", printerId: "k2-pro" }))))
+    const antes = ok(await comConta(outra.id, () => abrirBanco(url).ler()))
+    ok(await comConta(contaIdProva, () => abrirBanco(url).adicionarImpressora("ender")))
+    ok(await comConta(contaIdProva, () => abrirBanco(url).marcarImpressora("ender")))
+    ok(await comConta(contaIdProva, () => abrirBanco(url).marcarImpressoraDoProjeto("alheio")))
+    const depois = ok(await comConta(outra.id, () => abrirBanco(url).ler()))
+    assert.equal(depois.printers.activeId, antes.printers.activeId)
+  })
+
+  test("escrita nao altera impressora alheia", async () => {
+    const outra = await abrirBanco(url).criarConta("outra@example.com", "senha-oito")
+    assert.equal(outra.status, "criada")
+    if (outra.status !== "criada") return
+    ok(await comConta(contaIdProva, () => abrirBanco(url).atualizarImpressora("k2-pro", { name: "Minha", watts: "9", energyPrice: "8", printerPrice: "7", lifeHours: "6" })))
+    const lido = ok(await comConta(outra.id, () => abrirBanco(url).ler()))
+    const printer = lido.printers.printers[0]
+    assert.equal(printer?.name, "K2 Pro")
+    assert.equal(printer?.watts, "150")
+    assert.equal(printer?.energyPrice, "1.18")
+    assert.equal(printer?.printerPrice, "7979")
+    assert.equal(printer?.lifeHours, "3000")
+  })
+
+  test("save nao toma projeto alheio", async () => {
+    const outra = await abrirBanco(url).criarConta("outra@example.com", "senha-oito")
+    assert.equal(outra.status, "criada")
+    if (outra.status !== "criada") return
+    ok(await comConta(outra.id, () => abrirBanco(url).gravarProjeto(projeto({ id: "alheio", name: "Deles" }))))
+    ok(await comConta(contaIdProva, () => abrirBanco(url).gravarProjeto(projeto({ id: "alheio", name: "Roubado" }))))
+    const deles = ok(await comConta(outra.id, () => abrirBanco(url).ler()))
+    assert.equal(deles.projects[0]?.name, "Deles")
+    const meu = ok(await comConta(contaIdProva, () => abrirBanco(url).ler()))
+    assert.equal(meu.projects.some((item) => item.id === "alheio"), false)
+  })
+
+  test("uma impressora marcada por conta", async () => {
+    const outra = await abrirBanco(url).criarConta("outra@example.com", "senha-oito")
+    assert.equal(outra.status, "criada")
+    if (outra.status !== "criada") return
+    ok(await comConta(contaIdProva, () => abrirBanco(url).adicionarImpressora("ender")))
+    const ativas = await sql<{ conta_id: string; impressora_id: string }>("SELECT conta_id, impressora_id FROM impressora_ativa")
+    const porConta = new Map<string, string[]>()
+    for (const row of ativas.rows) {
+      const lista = porConta.get(row.conta_id) ?? []
+      lista.push(row.impressora_id)
+      porConta.set(row.conta_id, lista)
+    }
+    assert.equal(porConta.size, 2)
+    for (const [contaId, ids] of porConta) {
+      assert.equal(ids.length, 1)
+      const dona = await sql<{ n: number }>("SELECT count(*)::int AS n FROM impressora WHERE conta_id = $1 AND id = $2", [contaId, ids[0]])
+      assert.equal(Number(dona.rows[0]?.n), 1)
+    }
+  })
+
+  test("duas contas com k2-pro", async () => {
+    const outra = await abrirBanco(url).criarConta("outra@example.com", "senha-oito")
+    assert.equal(outra.status, "criada")
+    const linhas = await sql<{ n: number }>("SELECT count(*)::int AS n FROM impressora WHERE id = 'k2-pro'")
+    assert.equal(Number(linhas.rows[0]?.n), 2)
+  })
+
+  test("nao apaga a ultima impressora da conta", async () => {
+    const outra = await abrirBanco(url).criarConta("outra@example.com", "senha-oito")
+    assert.equal(outra.status, "criada")
+    if (outra.status !== "criada") return
+    ok(await comConta(contaIdProva, () => abrirBanco(url).adicionarImpressora("ender")))
+    ok(await comConta(outra.id, () => abrirBanco(url).removerImpressora("k2-pro")))
+    const lido = ok(await comConta(outra.id, () => abrirBanco(url).ler()))
+    assert.ok(lido.printers.printers.length >= 1)
+  })
+
+  test("primeiro clique nao muda a senha", async () => {
+    const outra = await abrirBanco(url).criarConta("outra@example.com", "senha-oito")
+    assert.equal(outra.status, "criada")
+    const antes = await sql<{ verificador: Buffer }>("SELECT verificador FROM conta WHERE email = 'outra@example.com'")
+    assert.equal((await abrirBanco(url).redefinirSenha(contaIdProva, "outra@example.com", null)).status, "inalterado")
+    const depois = await sql<{ verificador: Buffer }>("SELECT verificador FROM conta WHERE email = 'outra@example.com'")
+    assert.deepEqual(depois.rows[0]?.verificador, antes.rows[0]?.verificador)
+  })
+
+  test("redefinir apaga so a sessao da outra", async () => {
+    const outra = await abrirBanco(url).criarConta("outra@example.com", "senha-oito")
+    assert.equal(outra.status, "criada")
+    const admin = await abrirBanco(url).entrar("pablorgds@gmail.com", "segredo-inicial")
+    const alheia = await abrirBanco(url).entrar("outra@example.com", "senha-oito")
+    assert.equal(admin.status, "ok")
+    assert.equal(alheia.status, "ok")
+    if (admin.status !== "ok" || alheia.status !== "ok") return
+    assert.equal((await abrirBanco(url).redefinirSenha(contaIdProva, "outra@example.com", "nova-senha")).status, "trocada")
+    assert.equal(await abrirBanco(url).lerSessao(alheia.token), null)
+    const segue = await abrirBanco(url).lerSessao(admin.token)
+    assert.equal(segue?.email, "pablorgds@gmail.com")
+  })
+
+  test("nao redefine a senha do admin", async () => {
+    const antes = await sql<{ verificador: Buffer }>("SELECT verificador FROM conta WHERE email = 'pablorgds@gmail.com'")
+    assert.equal((await abrirBanco(url).redefinirSenha(contaIdProva, "pablorgds@gmail.com", "nova-senha")).status, "inalterado")
+    const depois = await sql<{ verificador: Buffer }>("SELECT verificador FROM conta WHERE email = 'pablorgds@gmail.com'")
+    assert.deepEqual(depois.rows[0]?.verificador, antes.rows[0]?.verificador)
+  })
+
+  test("conta comum nao redefine senha", async () => {
+    const outra = await abrirBanco(url).criarConta("outra@example.com", "senha-oito")
+    const terceira = await abrirBanco(url).criarConta("tres@example.com", "senha-oito")
+    assert.equal(outra.status, "criada")
+    assert.equal(terceira.status, "criada")
+    if (outra.status !== "criada") return
+    const antes = await sql<{ email: string; verificador: Buffer }>("SELECT email, verificador FROM conta ORDER BY email")
+    assert.equal((await abrirBanco(url).redefinirSenha(outra.id, "tres@example.com", "nova-senha")).status, "inalterado")
+    const depois = await sql<{ email: string; verificador: Buffer }>("SELECT email, verificador FROM conta ORDER BY email")
+    assert.deepEqual(depois.rows, antes.rows)
+  })
+
+  test("redefinir senha curta mantem a anterior", async () => {
+    const outra = await abrirBanco(url).criarConta("outra@example.com", "senha-oito")
+    assert.equal(outra.status, "criada")
+    const antes = await sql<{ verificador: Buffer }>("SELECT verificador FROM conta WHERE email = 'outra@example.com'")
+    assert.equal((await abrirBanco(url).redefinirSenha(contaIdProva, "outra@example.com", "1234567")).status, "senha-curta")
+    const depois = await sql<{ verificador: Buffer }>("SELECT verificador FROM conta WHERE email = 'outra@example.com'")
+    assert.deepEqual(depois.rows[0]?.verificador, antes.rows[0]?.verificador)
+  })
+
+  test("sair apaga o token", async () => {
+    const entrada = await abrirBanco(url).entrar("pablorgds@gmail.com", "segredo-inicial")
+    assert.equal(entrada.status, "ok")
+    if (entrada.status !== "ok") return
+    await abrirBanco(url).apagarSessao(entrada.token)
+    const n = await sql<{ n: number }>("SELECT count(*)::int AS n FROM sessao WHERE token = $1", [entrada.token])
+    assert.equal(Number(n.rows[0]?.n), 0)
+  })
+
+  test("sair remove so o token enviado", async () => {
+    const primeira = await abrirBanco(url).entrar("pablorgds@gmail.com", "segredo-inicial")
+    const segunda = await abrirBanco(url).entrar("pablorgds@gmail.com", "segredo-inicial")
+    assert.equal(primeira.status, "ok")
+    assert.equal(segunda.status, "ok")
+    if (primeira.status !== "ok" || segunda.status !== "ok") return
+    assert.equal((await abrirBanco(url).lerSessao(primeira.token))?.email, "pablorgds@gmail.com")
+    assert.equal((await abrirBanco(url).lerSessao(segunda.token))?.email, "pablorgds@gmail.com")
+    await abrirBanco(url).apagarSessao(primeira.token)
+    assert.equal(await abrirBanco(url).lerSessao(primeira.token), null)
+    assert.equal((await abrirBanco(url).lerSessao(segunda.token))?.email, "pablorgds@gmail.com")
+  })
+
+  test("chave da impressora por conta", async () => {
+    const impressora = await sql<{ def: string }>(
+      "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conrelid = 'impressora'::regclass AND contype = 'p'"
+    )
+    assert.match(impressora.rows.map((row) => row.def).join("\n"), /PRIMARY KEY \(conta_id, id\)/)
+    const ativa = await sql<{ def: string }>(
+      "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conrelid = 'impressora_ativa'::regclass"
+    )
+    const texto = ativa.rows.map((row) => row.def).join("\n")
+    assert.match(texto, /PRIMARY KEY \(conta_id\)/)
+    assert.match(texto, /FOREIGN KEY \(conta_id, impressora_id\) REFERENCES impressora\(conta_id, id\)/)
+  })
+
+  test("email unico e um admin", async () => {
+    const indice = await sql<{ indexdef: string }>("SELECT indexdef FROM pg_indexes WHERE indexname = 'conta_email_lower'")
+    assert.match(indice.rows[0]?.indexdef ?? "", /lower\(email\)/)
+    const admins = await sql<{ email: string }>("SELECT email FROM conta WHERE papel = 'admin'")
+    assert.deepEqual(admins.rows.map((row) => row.email), ["pablorgds@gmail.com"])
+  })
+
+  test("token opaco igual ao cookie", async () => {
+    const entrada = await abrirBanco(url).entrar("pablorgds@gmail.com", "segredo-inicial")
+    assert.equal(entrada.status, "ok")
+    if (entrada.status !== "ok") return
+    assert.equal(entrada.token.includes("."), false)
+    const gravado = await sql<{ token: string }>("SELECT token FROM sessao WHERE token = $1", [entrada.token])
+    assert.equal(gravado.rows[0]?.token, entrada.token)
+  })
+
+  test("banco sem cookies", () => {
+    const bancoSrc = fs.readFileSync(path.join(root, "src/lib/banco.ts"), "utf8")
+    assert.equal(bancoSrc.includes("cookies("), false)
   })
 })

@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { BotaoSair } from "@/components/botao-sair"
 
 const navItems = [
   { href: "/", label: "Calculadora" },
@@ -9,7 +10,7 @@ const navItems = [
   { href: "/configuracoes", label: "Configurações" },
 ]
 
-export function SiteHeader() {
+export function SiteHeader({ sair = false }: { sair?: boolean }) {
   const pathname = usePathname()
 
   return (
@@ -36,6 +37,7 @@ export function SiteHeader() {
             )
           })}
         </nav>
+        {sair ? <BotaoSair /> : null}
       </div>
     </header>
   )

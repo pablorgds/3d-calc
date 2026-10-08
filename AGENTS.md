@@ -1,6 +1,6 @@
 # Custo por chapa
 
-Precificação de impressão 3D neste computador. Sem conta. O README descreve o que o app faz; os arquivos em `docs/` descrevem como o código funciona.
+Precificação de impressão 3D neste computador. A calculadora pede a conta. O README descreve o que o app faz; os arquivos em `docs/` descrevem como o código funciona.
 
 ## Onde ler
 

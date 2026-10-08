@@ -6,9 +6,12 @@ Next.js 16 (App Router), React 19, Tailwind CSS 4 e componentes no estilo shadcn
 
 | Rota | Página | Cliente |
 | --- | --- | --- |
+| `/entrar` | `src/app/entrar/page.tsx` | formulário de e-mail e senha |
 | `/` | `src/app/page.tsx` | `Calculadora` |
 | `/projetos` | `src/app/projetos/page.tsx` | `ListaProjetos` |
 | `/configuracoes` | `src/app/configuracoes/page.tsx` | `ConfiguracoesForm` |
+
+`/`, `/projetos` e `/configuracoes` respondem 307 para `/entrar` sem `sessao` válida.
 
 A calculadora lê `?projeto=` no server component e passa o id adiante. A `key` do componente muda com o id, então abrir outro projeto remonta o formulário. Projetos e Configurações só renderizam um `PageIntro` e o cliente.
 

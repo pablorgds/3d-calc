@@ -28,6 +28,29 @@ test("adapters pelo servidor", () => {
   assert.match(fonte("docs/arquitetura.md"), new RegExp(FRASE_ADAPTER.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))
 })
 
+test("dados cada conta", () => {
+  assert.match(fonte("docs/dados.md"), /cada conta tem as próprias impressoras e os próprios projetos/i)
+})
+
+test("arquitetura entrar 307", () => {
+  const texto = fonte("docs/arquitetura.md")
+  assert.match(texto, /\/entrar/)
+  assert.match(texto, /\/`, `\/projetos` e `\/configuracoes` respondem 307 para `\/entrar` sem `sessao` válida/)
+})
+
+test("agents pede a conta", () => {
+  const agents = fonte("AGENTS.md")
+  const primeiro = agents.slice(0, agents.indexOf("\n## "))
+  assert.match(primeiro, /calculadora pede a conta/i)
+  assert.equal(primeiro.includes("Sem conta"), false)
+})
+
+test("readme backlog sem login", () => {
+  const readme = fonte("README.md")
+  const backlog = readme.slice(readme.indexOf("## Backlog"))
+  assert.equal(backlog.includes("login"), false)
+})
+
 test("so banco importa pg", () => {
   assert.match(fonte("src/lib/banco.ts"), /from "pg"/)
   for (const arquivo of [

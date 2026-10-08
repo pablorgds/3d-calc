@@ -37,6 +37,16 @@ function fonte(relativo: string) {
   return fs.readFileSync(path.join(root, relativo), "utf8")
 }
 
+test("configuracoes lendo desta conta", () => {
+  const vista = vistaCarregamento("configuracoes", "lendo")
+  assert.equal(vista.descricao, "As impressoras desta conta ficam no banco deste computador.")
+})
+
+test("projetos lendo desta conta", () => {
+  const vista = vistaCarregamento("projetos", "lendo")
+  assert.equal(vista.descricao, "Os projetos desta conta ficam no banco deste computador.")
+})
+
 test("tres telas lendo", () => {
   for (const tela of ["calculadora", "projetos", "configuracoes"] as const) {
     const vista = vistaCarregamento(tela, "lendo")
@@ -104,7 +114,7 @@ test("projeto gravado no banco", () => {
 test("configuracoes lendo o banco", () => {
   const vista = vistaCarregamento("configuracoes", "lendo")
   assert.equal(vista.descricao, DESCRICAO_CONFIG_LENDO)
-  assert.equal(vista.descricao, "As impressoras ficam no banco deste computador, sem conta.")
+  assert.equal(vista.descricao, "As impressoras desta conta ficam no banco deste computador.")
   assert.match(fonte("src/components/configuracoes-form.tsx"), /vista\.descricao/)
 })
 
@@ -365,6 +375,6 @@ test("mesas sem frases da chapa", () => {
 test("projetos lendo o banco", () => {
   const vista = vistaCarregamento("projetos", "lendo")
   assert.equal(vista.descricao, DESCRICAO_PROJETOS_LENDO)
-  assert.equal(vista.descricao, "Os projetos ficam no banco deste computador, sem conta.")
+  assert.equal(vista.descricao, "Os projetos desta conta ficam no banco deste computador.")
   assert.match(fonte("src/components/lista-projetos.tsx"), /vista\.descricao/)
 })
