@@ -13,3 +13,15 @@ Hoje cada cor do lote leva nome, amostra, R$/kg e gramas digitados na hora. O pr
 Fora deste item, até alguém pedir: quantidade em estoque, baixa de gramas ao imprimir, e rolo com peso diferente de 1 kg. O preço pago entra como R$/kg.
 
 A decidir quando virar plano: se o preço no estoque mudar depois, o lote já gravado guarda o R$/kg da hora em que a cor entrou, ou passa a acompanhar o cadastro — do jeito que a tarifa do projeto acompanha a impressora.
+
+## Cliente do projeto
+
+Guardar, no projeto, quem pediu a peça: nome e telefone. Na calculadora e na lista de projetos, esse cliente aparece junto do lote.
+
+A conta não muda. Peça, lote, energia, depreciação, material e mão de obra continuam como estão. Nome e telefone ficam em texto, do jeito que foram digitados. Os dois podem ficar vazios: um lote sem cliente continua válido.
+
+Hoje o projeto guarda o nome do lote, a impressora, o modo, as cópias, o tempo, a mão de obra e as cores. Não há cliente. Duplicar copia o lote, inclusive as cores, e só muda o nome.
+
+Fora deste item, até alguém pedir: endereço, e-mail, documento, mais de um telefone, e um cadastro de clientes solto da lista de projetos.
+
+A decidir quando virar plano: o cliente é um cadastro próprio que vários projetos apontam, ou nome e telefone ficam gravados no próprio projeto — e, nesse segundo caso, duplicar o lote copia os dois campos.

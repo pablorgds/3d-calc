@@ -53,8 +53,8 @@ Status: done
 Proof: `node --experimental-strip-types --test src/lib/casca.test.ts --test-name-pattern "z-index da barra de totais 100"`
 Status: done
 
-**C12** - O vão entre o título da página e o conteúdo abaixo é `clamp(4rem, 8vw, 8rem)` (AC 12)
-Proof: `node --experimental-strip-types --test src/lib/casca.test.ts --test-name-pattern "vao clamp 4rem 8vw 8rem"`
+**C12** - O vão entre o título da página e o conteúdo abaixo é `1.5rem` (AC 12)
+Proof: `node --experimental-strip-types --test src/lib/casca.test.ts --test-name-pattern "vao depois do titulo 1.5rem"`
 Status: done
 
 **C13** - Cards irmãos se separam por `1.5rem` (AC 13)
