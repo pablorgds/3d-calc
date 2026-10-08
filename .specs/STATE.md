@@ -11,9 +11,9 @@
 ## Handoff
 
 **Feature**: modelo-suico
-**Where**: C1–C58 closed at `7c40d7d`
+**Where**: C1–C58 verified PASS at `07ac117`, profile light
 **In progress**: none
-**Next step**: independent verification of `.specs/features/modelo-suico` over `14f11ce..HEAD`
+**Next step**: none for this feature
 **Blockers**: none
 **Uncommitted**: none of this feature
 **Branch**: main
