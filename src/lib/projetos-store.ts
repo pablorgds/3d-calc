@@ -31,6 +31,11 @@ function parseMode(value: unknown): EntryMode | null {
   return value === "peca" || value === "lote" ? value : null
 }
 
+function parseColorMode(value: unknown, colorCount: number) {
+  if (value === "unica" || value === "multicolor") return value
+  return colorCount > 1 ? "multicolor" : "unica"
+}
+
 export function parseProject(value: unknown): Project | null {
   if (!value || typeof value !== "object") return null
   const record = value as Record<string, unknown>
@@ -40,6 +45,8 @@ export function parseProject(value: unknown): Project | null {
   const colors = Array.isArray(record.colors)
     ? record.colors.map(parseColor).filter((color): color is ColorDraft => color !== null)
     : []
+  const colorMode = parseColorMode(record.colorMode, colors.length)
+  const gramsGravados = asString(record.grams, "")
   return {
     id,
     name: asString(record.name),
@@ -49,6 +56,8 @@ export function parseProject(value: unknown): Project | null {
     hours: asString(record.hours, "0"),
     minutes: asString(record.minutes, "0"),
     labor: asString(record.labor, "0"),
+    colorMode,
+    grams: gramsGravados !== "" ? gramsGravados : colorMode === "unica" ? (colors[0]?.grams ?? "") : "",
     colors,
     updatedAt: typeof record.updatedAt === "number" && Number.isFinite(record.updatedAt) ? record.updatedAt : 0,
   }

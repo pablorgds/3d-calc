@@ -9,6 +9,7 @@ Os valores de entrada da conta já estão na unidade em que o usuário digitou. 
 Para o valor digitado (uma peça no modo peça, a mesa no modo lote):
 
 - Material de uma cor = gramas × (R$/kg ÷ 1000). O material é a soma das cores.
+- Cor única: o peso é da peça (ou da mesa, no modo lote) e entra na única cor. Várias cores: cada cor tem o próprio peso.
 - Energia = (W ÷ 1000) × (minutos ÷ 60) × R$/kWh.
 - Depreciação = (preço da máquina ÷ vida útil em horas) × horas.
 - Mão de obra = (material + energia + depreciação) × (percentual ÷ 100).

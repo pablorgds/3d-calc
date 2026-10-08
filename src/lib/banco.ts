@@ -110,6 +110,28 @@ function ehSemente(printers: PrinterStore, projects: Project[]) {
 
 async function garantirSchema(client: PoolClient) {
   for (const tabela of TABELAS) await client.query(tabela)
+  await client.query("ALTER TABLE projeto ADD COLUMN IF NOT EXISTS color_mode text NOT NULL DEFAULT 'unica'")
+  await client.query("ALTER TABLE projeto ADD COLUMN IF NOT EXISTS grams text NOT NULL DEFAULT ''")
+  await client.query(
+    `UPDATE projeto AS p
+     SET color_mode = 'multicolor'
+     WHERE p.color_mode = 'unica'
+       AND p.grams = ''
+       AND (SELECT count(*) FROM cor WHERE projeto_id = p.id) > 1`
+  )
+  await client.query(
+    `UPDATE projeto AS p
+     SET grams = primeira.grams
+     FROM (
+       SELECT DISTINCT ON (projeto_id) projeto_id, grams
+       FROM cor
+       ORDER BY projeto_id, posicao, id
+     ) AS primeira
+     WHERE p.id = primeira.projeto_id
+       AND p.color_mode = 'unica'
+       AND p.grams = ''
+       AND primeira.grams <> ''`
+  )
 }
 
 async function garantirSemente(client: PoolClient) {
@@ -170,8 +192,10 @@ async function lerProjetos(client: PoolClient): Promise<Project[]> {
     hours: string
     minutes: string
     labor: string
+    color_mode: string
+    grams: string
     updated_at: string | number
-  }>("SELECT id, name, printer_id, mode, copies, hours, minutes, labor, updated_at FROM projeto")
+  }>("SELECT id, name, printer_id, mode, copies, hours, minutes, labor, color_mode, grams, updated_at FROM projeto")
   const colors = await client.query<{
     projeto_id: string
     id: string
@@ -196,6 +220,8 @@ async function lerProjetos(client: PoolClient): Promise<Project[]> {
       hours: row.hours,
       minutes: row.minutes,
       labor: row.labor,
+      colorMode: row.color_mode === "multicolor" ? "multicolor" : "unica",
+      grams: row.grams,
       colors: byProject.get(row.id) ?? [],
       updatedAt: Number(row.updated_at),
     }))
@@ -231,8 +257,8 @@ async function substituirImpressoras(client: PoolClient, store: PrinterStore) {
 
 async function inserirProjeto(client: PoolClient, project: Project) {
   await client.query(
-    `INSERT INTO projeto (id, name, printer_id, mode, copies, hours, minutes, labor, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `INSERT INTO projeto (id, name, printer_id, mode, copies, hours, minutes, labor, color_mode, grams, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
      ON CONFLICT (id) DO UPDATE SET
        name = EXCLUDED.name,
        printer_id = EXCLUDED.printer_id,
@@ -241,6 +267,8 @@ async function inserirProjeto(client: PoolClient, project: Project) {
        hours = EXCLUDED.hours,
        minutes = EXCLUDED.minutes,
        labor = EXCLUDED.labor,
+       color_mode = EXCLUDED.color_mode,
+       grams = EXCLUDED.grams,
        updated_at = EXCLUDED.updated_at`,
     [
       project.id,
@@ -251,6 +279,8 @@ async function inserirProjeto(client: PoolClient, project: Project) {
       project.hours,
       project.minutes,
       project.labor,
+      project.colorMode === "multicolor" ? "multicolor" : "unica",
+      project.grams,
       project.updatedAt,
     ]
   )

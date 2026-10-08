@@ -65,7 +65,7 @@ Proof: `node --experimental-strip-types --test src/lib/banco.test.ts --test-name
 **C18** - Uma remoção que deixaria zero impressoras mantém um id que já estava gravado (AC 18)
 Proof: `node --experimental-strip-types --test src/lib/banco.test.ts --test-name-pattern "recusa apagar a ultima impressora"`
 
-**C19** - Impressora adicionada fica ativa, com nome `Nova impressora` e watts, energyPrice, printerPrice e lifeHours `0` (AC 19)
+**C19** - Impressora adicionada fica ativa, com nome `Nova impressora` e watts, energyPrice, printerPrice e lifeHours vazios (AC 19)
 Proof: `node --experimental-strip-types --test src/lib/banco.test.ts --test-name-pattern "nova impressora nasce zerada"`
 
 **C20** - Projeto sem id, ou com mode diferente de `peca` e de `lote`, não acrescenta linha (AC 20)

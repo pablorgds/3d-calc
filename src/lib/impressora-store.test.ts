@@ -51,7 +51,10 @@ test("adicionar, marcar e remover impressora", () => {
   const added = insertPrinter(start, "ender")
   assert.equal(added.activeId, "ender")
   assert.equal(added.printers[1].name, "Nova impressora")
-  assert.equal(added.printers[1].watts, "0")
+  assert.equal(added.printers[1].watts, "")
+  assert.equal(added.printers[1].energyPrice, "")
+  assert.equal(added.printers[1].printerPrice, "")
+  assert.equal(added.printers[1].lifeHours, "")
 
   const renamed = updatePrinter(added, "ender", { name: "Ender 3", watts: "120" })
   assert.equal(renamed.printers[1].name, "Ender 3")

@@ -31,6 +31,8 @@ function projeto(overrides: Partial<Project> = {}): Project {
     hours: "2",
     minutes: "15",
     labor: "30",
+    colorMode: "unica",
+    grams: "40",
     colors: [{ id: "c1", name: "PLA preto", hex: "#111111", price: "90", grams: "40" }],
     updatedAt: 10,
     ...overrides,
@@ -245,10 +247,10 @@ test.describe("banco", { concurrency: 1 }, () => {
     const nova = lido.printers.printers.find((item) => item.id === "nova")
     assert.equal(lido.printers.activeId, "nova")
     assert.equal(nova?.name, "Nova impressora")
-    assert.equal(nova?.watts, "0")
-    assert.equal(nova?.energyPrice, "0")
-    assert.equal(nova?.printerPrice, "0")
-    assert.equal(nova?.lifeHours, "0")
+    assert.equal(nova?.watts, "")
+    assert.equal(nova?.energyPrice, "")
+    assert.equal(nova?.printerPrice, "")
+    assert.equal(nova?.lifeHours, "")
   })
 
   test("rejeita projeto sem id ou mode", async () => {

@@ -102,7 +102,7 @@ Gravar, reabrir, duplicar e apagar usam o Postgres. Limpar o site e recriar o co
 16. WHEN a exclusão de um projeto é confirmada THEN esse id SHALL estar ausente e nenhuma cor dele SHALL permanecer.
 17. WHEN a impressora ativa é removida e existe outra THEN o id removido SHALL estar ausente e o id ativo SHALL ser a impressora restante gravada primeiro.
 18. IF uma remoção deixaria zero impressoras THEN the system SHALL manter ao menos um id de impressora que já estava gravado.
-19. WHEN uma impressora é adicionada THEN ela SHALL ser a ativa, o nome SHALL ser `Nova impressora`, e watts, energyPrice, printerPrice e lifeHours SHALL ser `0`.
+19. WHEN uma impressora é adicionada THEN ela SHALL ser a ativa, o nome SHALL ser `Nova impressora`, e watts, energyPrice, printerPrice e lifeHours SHALL ser vazios.
 20. IF um projeto chega sem id, ou com mode diferente de `peca` e de `lote` THEN the system SHALL NOT acrescentar linha de projeto.
 21. The system SHALL gravar um projeto cujo printerId não corresponde a impressora nenhuma.
 22. WHEN `/?projeto=<id>` é aberto e o printerId desse projeto existe THEN a impressora ativa SHALL passar a ser esse printerId.

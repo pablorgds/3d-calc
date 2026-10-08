@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { NumberField } from "@/components/number-field"
+import { NumberField, numberFieldIssue } from "@/components/number-field"
 import { useMovimento } from "@/components/movimento"
 import {
   calculate,
@@ -15,10 +15,10 @@ import {
   formatBRL,
   formatDuration,
   formatGrams,
-  parseDecimal,
   type Amount,
   type CalcResult,
   type ColorDraft,
+  type ColorMode,
   type EntryMode,
 } from "@/lib/custo"
 import { setActivePrinter, useLeitura, usePrinterStore } from "@/lib/impressora"
@@ -97,13 +97,17 @@ function ColorEditor({
   color,
   onChange,
   onRemove,
+  priceError,
+  gramsError,
+  showGrams,
 }: {
   color: ColorDraft
   onChange: (id: string, patch: Partial<ColorDraft>) => void
   onRemove: (id: string) => void
+  priceError: string | null
+  gramsError: string | null
+  showGrams: boolean
 }) {
-  const price = parseDecimal(color.price)
-  const grams = parseDecimal(color.grams)
   return (
     <div className="grid gap-3 rounded-lg border p-3" data-testid={`cor-${color.id}`}>
       <div className="flex items-end gap-3">
@@ -141,25 +145,30 @@ function ColorEditor({
           Remover
         </Button>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className={showGrams ? "grid gap-3 sm:grid-cols-2" : "grid gap-3"}>
         <NumberField
           id={`${color.id}-preco`}
           label="Preço (R$/kg)"
           value={color.price}
           onChange={(price) => onChange(color.id, { price })}
+          placeholder="80"
+          when="reported"
+          error={priceError}
           testId={`cor-preco-${color.id}`}
         />
-        <NumberField
-          id={`${color.id}-peso`}
-          label="Peso (g)"
-          value={color.grams}
-          onChange={(grams) => onChange(color.id, { grams })}
-          testId={`cor-peso-${color.id}`}
-        />
+        {showGrams ? (
+          <NumberField
+            id={`${color.id}-peso`}
+            label="Peso (g)"
+            value={color.grams}
+            onChange={(grams) => onChange(color.id, { grams })}
+            placeholder="12"
+            when="reported"
+            error={gramsError}
+            testId={`cor-peso-${color.id}`}
+          />
+        ) : null}
       </div>
-      {price.status === "invalid" || grams.status === "invalid" ? (
-        <p className="erro-campo">Preço e peso precisam ser zero ou positivos.</p>
-      ) : null}
     </div>
   )
 }
@@ -220,19 +229,48 @@ function CalculadoraEditor({
   const [projectName, setProjectName] = useState(initial?.name ?? "")
   const [nameError, setNameError] = useState<string | null>(null)
   const [mode, setMode] = useState<EntryMode>(initial?.mode ?? "peca")
-  const [copies, setCopies] = useState(initial?.copies ?? "0")
-  const [hours, setHours] = useState(initial?.hours ?? "0")
-  const [minutesPart, setMinutesPart] = useState(initial?.minutes ?? "0")
+  const [copies, setCopies] = useState(initial?.copies ?? "")
+  const [hours, setHours] = useState(initial?.hours ?? "")
+  const [minutesPart, setMinutesPart] = useState(initial?.minutes ?? "")
   const [colors, setColors] = useState<ColorDraft[]>(initial?.colors ?? [])
-  const [labor, setLabor] = useState(initial?.labor ?? "0")
+  const [labor, setLabor] = useState(initial?.labor ?? "")
+  const [colorMode, setColorMode] = useState<ColorMode>(initial?.colorMode ?? "unica")
+  const [grams, setGrams] = useState(initial?.grams ?? "")
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     if (!initial?.printerId) return
     setActivePrinter(initial.printerId)
   }, [initial])
 
+  function forgetIssue(id: string) {
+    setFieldErrors((current) => {
+      if (!current[id]) return current
+      const next = { ...current }
+      delete next[id]
+      return next
+    })
+  }
+
+  function chooseColorMode(next: ColorMode) {
+    if (next === colorMode) return
+    if (next === "multicolor") {
+      setColors((current) => {
+        if (current.length === 0 || current[0].grams.trim() !== "" || grams.trim() === "") return current
+        const [first, ...rest] = current
+        return [{ ...first, grams }, ...rest]
+      })
+    } else if (grams.trim() === "") {
+      setGrams(colors[0]?.grams ?? "")
+    }
+    setColorMode(next)
+    forgetIssue("peso")
+  }
+
   function updateColor(id: string, patch: Partial<ColorDraft>) {
     setColors((current) => current.map((color) => (color.id === id ? { ...color, ...patch } : color)))
+    if (patch.price !== undefined) forgetIssue(`${id}-preco`)
+    if (patch.grams !== undefined) forgetIssue(`${id}-peso`)
   }
 
   function removeColor(id: string) {
@@ -246,8 +284,8 @@ function CalculadoraEditor({
         id: crypto.randomUUID(),
         name: "",
         hex: swatches[current.length % swatches.length],
-        price: "0",
-        grams: "0",
+        price: "",
+        grams: "",
       },
     ])
   }
@@ -257,19 +295,38 @@ function CalculadoraEditor({
       printer
         ? calculate(
             draftToCalcInput(
-              { mode, copies, hours, minutes: minutesPart, labor, colors },
+              { mode, copies, hours, minutes: minutesPart, labor, colorMode, grams, colors },
               printer
             )
           )
         : null,
-    [mode, copies, hours, minutesPart, printer, labor, colors]
+    [mode, copies, hours, minutesPart, printer, labor, colorMode, grams, colors]
   )
 
   function saveProject() {
     if (!printer) return
     const name = projectName.trim()
-    if (!name) {
-      setNameError("Dê um nome para gravar o lote.")
+    const issues: Record<string, string> = {}
+    const note = (id: string, value: string, integer = false) => {
+      const issue = numberFieldIssue(value, integer)
+      if (issue) issues[id] = issue
+    }
+    note("horas", hours)
+    note("minutos", minutesPart)
+    note("mao-de-obra", labor)
+    if (mode === "lote") note("copias", copies, true)
+    if (colorMode === "unica") note("peso", grams)
+    const coresConferidas = colorMode === "unica" ? colors.slice(0, 1) : colors
+    for (const color of coresConferidas) {
+      note(`${color.id}-preco`, color.price)
+      if (colorMode === "multicolor") note(`${color.id}-peso`, color.grams)
+    }
+    setFieldErrors(issues)
+    setNameError(name ? null : "Dê um nome para gravar o lote.")
+    if (!name || Object.keys(issues).length > 0) {
+      window.setTimeout(() => {
+        document.querySelector("[aria-invalid='true']")?.scrollIntoView({ block: "center", behavior: "smooth" })
+      }, 0)
       return
     }
     const id = !projectId || missing ? crypto.randomUUID() : projectId
@@ -282,7 +339,9 @@ function CalculadoraEditor({
       hours,
       minutes: minutesPart,
       labor,
-      colors,
+      colorMode,
+      grams,
+      colors: colorMode === "unica" ? colors.slice(0, 1).map((color) => ({ ...color, grams })) : colors,
       updatedAt: Date.now(),
     })
     setProjectName(name)
@@ -297,12 +356,15 @@ function CalculadoraEditor({
     }
     setProjectName("")
     setMode("peca")
-    setCopies("0")
-    setHours("0")
-    setMinutesPart("0")
-    setLabor("0")
+    setCopies("")
+    setHours("")
+    setMinutesPart("")
+    setLabor("")
+    setColorMode("unica")
+    setGrams("")
     setColors([])
     setNameError(null)
+    setFieldErrors({})
   }
 
   if (!printerStore || !printer || !result) return <CalculadoraLoading tipo={tipo} />
@@ -317,20 +379,44 @@ function CalculadoraEditor({
   const notes = resultNotes(result, mode)
   const modeHint =
     mode === "peca"
-      ? "O tempo e o peso de cada cor são de uma peça. Não há cópias na mesa: o lote é essa peça."
-      : "O tempo e o peso de cada cor são da mesa cheia. As cópias dividem o lote em cada peça."
+      ? colorMode === "unica"
+        ? "O tempo e o peso são de uma peça. Não há cópias na mesa: o lote é essa peça."
+        : "O tempo é de uma peça. O peso de cada cor é dessa peça. Não há cópias na mesa: o lote é essa peça."
+      : colorMode === "unica"
+        ? "O tempo e o peso são da mesa cheia. As cópias dividem o lote em cada peça."
+        : "O tempo é da mesa cheia. O peso de cada cor é da mesa. As cópias dividem o lote em cada peça."
 
   return (
     <main className="coluna py-8 pb-28 md:pb-10" data-motion={tipo}>
-      <header className="cabecalho-pagina">
+      <header className="cabecalho-pagina cabecalho-com-acoes">
         <h1 className="titulo-pagina">Calculadora</h1>
         <p className="lede text-muted-foreground">
           Um objeto pode levar várias cores na mesma impressão. Energia e depreciação vêm da impressora
           marcada. {frases.gravar}
         </p>
       </header>
+      <div className="acoes-pagina">
+        {projectId && !missing ? (
+          <Link href="/projetos" className="inline-flex h-11 items-center text-sm underline underline-offset-2">
+            Ver em Projetos
+          </Link>
+        ) : null}
+        <Button type="button" variant="outline" className="h-11" onClick={startNew} data-testid="novo-projeto">
+          Novo
+        </Button>
+        <Button type="submit" form="lote" className="h-11" data-testid="salvar-projeto">
+          Salvar
+        </Button>
+      </div>
       <div className="grade-calculadora">
-        <div className="pilha">
+        <form
+          id="lote"
+          className="pilha"
+          onSubmit={(event) => {
+            event.preventDefault()
+            saveProject()
+          }}
+        >
 
         {frases.ausente ? (
           <p className="lavagem p-3 text-sm text-muted-foreground" data-testid="projeto-ausente">
@@ -349,13 +435,7 @@ function CalculadoraEditor({
             <CardDescription>{frases.descricao}</CardDescription>
           </CardHeader>
           <CardContent>
-            <form
-              className="grid gap-3"
-              onSubmit={(event) => {
-                event.preventDefault()
-                saveProject()
-              }}
-            >
+            <div className="grid gap-3">
               <div className="campo">
                 <Label htmlFor="nome-projeto">Nome</Label>
                 <Input
@@ -396,20 +476,7 @@ function CalculadoraEditor({
                   .
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button type="submit" className="h-11" data-testid="salvar-projeto">
-                  Salvar
-                </Button>
-                <Button type="button" variant="outline" className="h-11" onClick={startNew} data-testid="novo-projeto">
-                  Novo
-                </Button>
-                {projectId && !missing ? (
-                  <Link href="/projetos" className="inline-flex h-11 items-center text-sm underline underline-offset-2">
-                    Ver em Projetos
-                  </Link>
-                ) : null}
-              </div>
-            </form>
+            </div>
           </CardContent>
         </Card>
 
@@ -441,46 +508,124 @@ function CalculadoraEditor({
               </div>
             </fieldset>
 
-            <div className={`grid gap-3 ${mode === "lote" ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+            <fieldset className="grid gap-2">
+              <legend className="legenda">A peça leva</legend>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <ModeOption
+                  name="cores"
+                  value="unica"
+                  checked={colorMode === "unica"}
+                  onSelect={() => chooseColorMode("unica")}
+                  title="Uma cor"
+                  testId="cor-unica"
+                />
+                <ModeOption
+                  name="cores"
+                  value="multicolor"
+                  checked={colorMode === "multicolor"}
+                  onSelect={() => chooseColorMode("multicolor")}
+                  title="Várias cores"
+                  testId="cor-multicolor"
+                />
+              </div>
+            </fieldset>
+
+            <div
+              className={`grid gap-3 ${
+                mode === "lote" && colorMode === "unica"
+                  ? "sm:grid-cols-4"
+                  : mode === "lote" || colorMode === "unica"
+                    ? "sm:grid-cols-3"
+                    : "sm:grid-cols-2"
+              }`}
+            >
               {mode === "lote" ? (
                 <NumberField
                   id="copias"
                   label="Cópias na mesa"
                   value={copies}
-                  onChange={setCopies}
+                  onChange={(value) => {
+                    setCopies(value)
+                    forgetIssue("copias")
+                  }}
                   integer
+                  placeholder="4"
+                  when="reported"
+                  error={fieldErrors.copias ?? null}
                   testId="copias"
                 />
               ) : null}
-              <NumberField id="horas" label="Horas" value={hours} onChange={setHours} testId="horas" />
+              <NumberField
+                id="horas"
+                label="Horas"
+                value={hours}
+                onChange={(value) => {
+                  setHours(value)
+                  forgetIssue("horas")
+                }}
+                placeholder="2"
+                when="reported"
+                error={fieldErrors.horas ?? null}
+                testId="horas"
+              />
               <NumberField
                 id="minutos"
                 label="Minutos"
                 value={minutesPart}
-                onChange={setMinutesPart}
+                onChange={(value) => {
+                  setMinutesPart(value)
+                  forgetIssue("minutos")
+                }}
+                placeholder="30"
+                when="reported"
+                error={fieldErrors.minutos ?? null}
                 testId="minutos"
               />
+              {colorMode === "unica" ? (
+                <NumberField
+                  id="peso"
+                  label={mode === "peca" ? "Peso da peça (g)" : "Peso da mesa (g)"}
+                  value={grams}
+                  onChange={(value) => {
+                    setGrams(value)
+                    forgetIssue("peso")
+                  }}
+                  placeholder="12"
+                  when="reported"
+                  error={fieldErrors.peso ?? null}
+                  testId="peso-peca"
+                />
+              ) : null}
             </div>
 
             <div className="grid gap-3">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="legenda">Filamentos do objeto</h2>
-                <Button type="button" variant="outline" className="h-11" onClick={addColor} data-testid="adicionar-cor">
-                  Adicionar cor
-                </Button>
+                <h2 className="legenda">{colorMode === "unica" ? "Filamento" : "Filamentos do objeto"}</h2>
+                {colorMode === "multicolor" || colors.length === 0 ? (
+                  <Button type="button" variant="outline" className="h-11" onClick={addColor} data-testid="adicionar-cor">
+                    Adicionar cor
+                  </Button>
+                ) : null}
               </div>
               {colors.length === 0 ? (
                 <p className="lavagem p-3 text-sm text-muted-foreground" data-testid="cores-vazio">
                   Nenhuma cor ainda. Sem filamento, o material fica em R$ 0,00.
                 </p>
               ) : (
-                colors.map((color, index) => (
+                (colorMode === "unica" ? colors.slice(0, 1) : colors).map((color, index) => (
                   <div
                     key={color.id}
                     className="item-lista"
                     style={{ "--atraso": atrasoLista(index, colors.length) } as CSSProperties}
                   >
-                    <ColorEditor color={color} onChange={updateColor} onRemove={removeColor} />
+                    <ColorEditor
+                      color={color}
+                      onChange={updateColor}
+                      onRemove={removeColor}
+                      showGrams={colorMode === "multicolor"}
+                      priceError={fieldErrors[`${color.id}-preco`] ?? null}
+                      gramsError={fieldErrors[`${color.id}-peso`] ?? null}
+                    />
                   </div>
                 ))
               )}
@@ -490,13 +635,19 @@ function CalculadoraEditor({
               id="mao-de-obra"
               label="Mão de obra (%)"
               value={labor}
-              onChange={setLabor}
+              onChange={(value) => {
+                setLabor(value)
+                forgetIssue("mao-de-obra")
+              }}
+              placeholder="15"
+              when="reported"
+              error={fieldErrors["mao-de-obra"] ?? null}
               testId="mao-de-obra"
               hint="Só sobre material + energia + depreciação. A impressora e a energia ficam em Configurações."
             />
           </CardContent>
         </Card>
-        </div>
+        </form>
 
       <Card className="md:sticky md:top-28">
         <CardHeader>

@@ -146,7 +146,25 @@
 }
 
 .cabecalho-pagina {
-  margin-bottom: clamp(4rem, 8vw, 8rem);
+  margin-bottom: 1.5rem;
+}
+
+.cabecalho-com-acoes {
+  margin-bottom: 0;
+}
+
+.acoes-pagina {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  position: sticky;
+  top: 6.75rem;
+  z-index: 40;
+  margin-top: 0.75rem;
+  padding-block: 0.25rem;
+  background: var(--background);
 }
 
 .pilha {
@@ -205,6 +223,7 @@ html .legenda {
   grid-template-columns: minmax(0, 1fr);
   gap: 1.5rem;
   align-items: start;
+  margin-top: 1.5rem;
 }
 
 .grade-calculadora > * {

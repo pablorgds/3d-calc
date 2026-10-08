@@ -112,6 +112,8 @@ export function ConfiguracoesForm() {
             label="Potência (W)"
             value={active.watts}
             onChange={(watts) => updatePrinterById(active.id, { watts })}
+            placeholder="150"
+            when="blur"
             testId="potencia"
           />
           <NumberField
@@ -119,6 +121,8 @@ export function ConfiguracoesForm() {
             label="Energia (R$/kWh)"
             value={active.energyPrice}
             onChange={(energyPrice) => updatePrinterById(active.id, { energyPrice })}
+            placeholder="1,18"
+            when="blur"
             testId="kwh"
           />
           <NumberField
@@ -126,6 +130,8 @@ export function ConfiguracoesForm() {
             label="Preço da impressora (R$)"
             value={active.printerPrice}
             onChange={(printerPrice) => updatePrinterById(active.id, { printerPrice })}
+            placeholder="7979"
+            when="blur"
             testId="preco-impressora"
           />
           <NumberField
@@ -133,6 +139,8 @@ export function ConfiguracoesForm() {
             label="Vida útil (horas)"
             value={active.lifeHours}
             onChange={(lifeHours) => updatePrinterById(active.id, { lifeHours })}
+            placeholder="3000"
+            when="blur"
             testId="vida-util"
           />
           {store.printers.length > 1 ? (

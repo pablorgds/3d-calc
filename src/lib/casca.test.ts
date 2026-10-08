@@ -172,8 +172,8 @@ test("z-index da barra de totais 100", () => {
   assert.match(calculadora, /barra-totais/)
 })
 
-test("vao clamp 4rem 8vw 8rem", () => {
-  assert.equal(prop(regra(css, ".cabecalho-pagina"), "margin-bottom"), "clamp(4rem, 8vw, 8rem)")
+test("vao depois do titulo 1.5rem", () => {
+  assert.equal(prop(regra(css, ".cabecalho-pagina"), "margin-bottom"), "1.5rem")
   const cabecalhos = [...intro.matchAll(/<header\b[^>]*>/g)]
   assert.equal(cabecalhos.length, 1)
   assert.match(cabecalhos[0][0], /cabecalho-pagina/)

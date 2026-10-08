@@ -94,6 +94,25 @@ test("peça única não usa as cópias guardadas no rascunho", () => {
   assert.deepEqual(input.minutes, { status: "ok", value: 60 })
 })
 
+test("cor única usa o peso da peça, não o peso gravado na cor", () => {
+  const printer = { watts: "100", energyPrice: "1", printerPrice: "1000", lifeHours: "1000" }
+  const input = draftToCalcInput(
+    {
+      mode: "peca",
+      copies: "1",
+      hours: "0",
+      minutes: "0",
+      labor: "0",
+      colorMode: "unica",
+      grams: "25",
+      colors: [{ id: "c", name: "Azul", hex: "#00f", price: "80", grams: "1" }],
+    },
+    printer
+  )
+  assert.deepEqual(input.colors[0].grams, { status: "ok", value: 25 })
+  assert.equal(calculate(input).piece.material, 2)
+})
+
 test("lote lê as cópias e a tarifa vem da impressora", () => {
   const printer = { watts: "100", energyPrice: "1", printerPrice: "1000", lifeHours: "1000" }
   const input = draftToCalcInput(

@@ -132,10 +132,10 @@ export function insertPrinter(store: PrinterStore, id: string): PrinterStore {
       {
         id: nextId,
         name: "Nova impressora",
-        watts: "0",
-        energyPrice: "0",
-        printerPrice: "0",
-        lifeHours: "0",
+        watts: "",
+        energyPrice: "",
+        printerPrice: "",
+        lifeHours: "",
       },
     ],
   }

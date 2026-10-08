@@ -1,5 +1,7 @@
 export type EntryMode = "peca" | "lote"
 
+export type ColorMode = "unica" | "multicolor"
+
 export type Field =
   | { status: "ok"; value: number }
   | { status: "empty" }
@@ -256,7 +258,21 @@ export type JobDraft = {
   hours: string
   minutes: string
   labor: string
+  colorMode: ColorMode
+  grams: string
   colors: ColorDraft[]
+}
+
+function coresParaConta(draft: JobDraft): CalcInput["colors"] {
+  const colorMode = draft.colorMode ?? "multicolor"
+  const list = colorMode === "unica" ? draft.colors.slice(0, 1) : draft.colors
+  return list.map((color) => ({
+    id: color.id,
+    name: color.name,
+    hex: color.hex,
+    pricePerKg: parseDecimal(color.price),
+    grams: parseDecimal(colorMode === "unica" ? (draft.grams ?? "") : color.grams),
+  }))
 }
 
 export function combineTime(hoursRaw: string, minutesRaw: string): Field {
@@ -280,13 +296,7 @@ export function draftToCalcInput(
     printerPrice: parseDecimal(printer.printerPrice),
     lifeHours: parseDecimal(printer.lifeHours),
     laborPercent: parseDecimal(draft.labor),
-    colors: draft.colors.map((color) => ({
-      id: color.id,
-      name: color.name,
-      hex: color.hex,
-      pricePerKg: parseDecimal(color.price),
-      grams: parseDecimal(color.grams),
-    })),
+    colors: coresParaConta(draft),
   }
 }
 

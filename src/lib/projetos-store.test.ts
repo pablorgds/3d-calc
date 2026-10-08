@@ -12,6 +12,8 @@ function project(overrides: Partial<Project> = {}): Project {
     hours: "2",
     minutes: "15",
     labor: "30",
+    colorMode: "unica",
+    grams: "40",
     colors: [{ id: "c1", name: "PLA preto", hex: "#111111", price: "90", grams: "40" }],
     updatedAt: 10,
     ...overrides,
@@ -23,6 +25,52 @@ test("grava e reabre o lote com modo, cópias, tempo, mão de obra e cores", () 
   const projects = parseProjects(serializeProjects([saved]))
   assert.equal(projects.length, 1)
   assert.deepEqual(projects[0], saved)
+})
+
+test("projeto antigo sem modo de cor vira uma cor e herda o peso", () => {
+  const projects = parseProjects(
+    JSON.stringify({
+      version: 1,
+      projects: [
+        {
+          id: "p1",
+          name: "Suporte",
+          printerId: "k2-pro",
+          mode: "peca",
+          copies: "0",
+          hours: "1",
+          minutes: "0",
+          labor: "0",
+          colors: [{ id: "c1", name: "PLA", hex: "#111111", price: "90", grams: "40" }],
+          updatedAt: 1,
+        },
+      ],
+    })
+  )
+  assert.equal(projects[0].colorMode, "unica")
+  assert.equal(projects[0].grams, "40")
+})
+
+test("duas cores antigas continuam multicoloridas", () => {
+  const projects = parseProjects(
+    JSON.stringify({
+      version: 1,
+      projects: [
+        {
+          id: "p1",
+          name: "Suporte",
+          mode: "peca",
+          colors: [
+            { id: "a", name: "A", hex: "#111111", price: "1", grams: "10" },
+            { id: "b", name: "B", hex: "#222222", price: "2", grams: "20" },
+          ],
+          updatedAt: 1,
+        },
+      ],
+    })
+  )
+  assert.equal(projects[0].colorMode, "multicolor")
+  assert.equal(projects[0].grams, "")
 })
 
 test("json inválido vira lista vazia", () => {
