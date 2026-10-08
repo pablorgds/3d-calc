@@ -12,6 +12,7 @@ import type { Project } from "./projetos-store.ts"
 
 const { idAoSalvar, serializeProjects } = await import("./projetos-store.ts")
 const { abrirBanco, abrirBancoDoAmbiente, comConta } = await import("./banco.ts")
+const { pegarTravaProva, soltarTravaProva } = await import("./trava-prova.ts")
 
 let contaIdProva = ""
 
@@ -99,8 +100,28 @@ async function esperarPostgres() {
   throw new Error("postgres de prova nao ficou pronto")
 }
 
+async function esperarConsulta(conexao: string) {
+  const inicio = Date.now()
+  let ultimo: unknown
+  while (Date.now() - inicio < 30_000) {
+    const client = new Client({ connectionString: conexao })
+    try {
+      await client.connect()
+      await client.query("SELECT 1")
+      return
+    } catch (erro) {
+      ultimo = erro
+      await new Promise((resolver) => setTimeout(resolver, 500))
+    } finally {
+      await client.end().catch(() => undefined)
+    }
+  }
+  throw ultimo
+}
+
 test.describe("banco", { concurrency: 1 }, () => {
   test.before(async () => {
+    await pegarTravaProva()
     await exec("docker", ["rm", "-f", container], { windowsHide: true }).catch(() => undefined)
     await exec(
       "docker",
@@ -126,6 +147,7 @@ test.describe("banco", { concurrency: 1 }, () => {
     const porta = stdout.match(/:(\d+)/)?.[1]
     if (!porta) throw new Error(stdout)
     url = `postgresql://custo:custo@127.0.0.1:${porta}/custo_chapa`
+    await esperarConsulta(url)
   }, { timeout: 180_000 })
 
   test.beforeEach(async () => {
@@ -148,8 +170,12 @@ test.describe("banco", { concurrency: 1 }, () => {
   })
 
   test.after(async () => {
-    await bancoProva().fechar()
-    await exec("docker", ["rm", "-f", container], { windowsHide: true }).catch(() => undefined)
+    try {
+      await bancoProva().fechar()
+      await exec("docker", ["rm", "-f", container], { windowsHide: true }).catch(() => undefined)
+    } finally {
+      soltarTravaProva()
+    }
   })
 
   test("semente k2 pro", async () => {
@@ -1607,6 +1633,7 @@ $$`)
 
   test("email unico e um admin", async () => {
     const indice = await sql<{ indexdef: string }>("SELECT indexdef FROM pg_indexes WHERE indexname = 'conta_email_lower'")
+    assert.match(indice.rows[0]?.indexdef ?? "", /CREATE UNIQUE INDEX/)
     assert.match(indice.rows[0]?.indexdef ?? "", /lower\(email\)/)
     const admins = await sql<{ email: string }>("SELECT email FROM conta WHERE papel = 'admin'")
     assert.deepEqual(admins.rows.map((row) => row.email), ["pablorgds@gmail.com"])
@@ -1616,9 +1643,12 @@ $$`)
     const entrada = await abrirBanco(url).entrar("pablorgds@gmail.com", "segredo-inicial")
     assert.equal(entrada.status, "ok")
     if (entrada.status !== "ok") return
-    assert.equal(entrada.token.includes("."), false)
+    const { cabecalhoCookieSessao } = await import("./senha.ts")
+    const valor = cabecalhoCookieSessao(entrada.token).match(/^sessao=([^;]+)/)?.[1] ?? ""
+    assert.equal(valor, entrada.token)
+    assert.equal(valor.includes("."), false)
     const gravado = await sql<{ token: string }>("SELECT token FROM sessao WHERE token = $1", [entrada.token])
-    assert.equal(gravado.rows[0]?.token, entrada.token)
+    assert.equal(gravado.rows[0]?.token, valor)
   })
 
   test("banco sem cookies", () => {

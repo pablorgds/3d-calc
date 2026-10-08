@@ -9,6 +9,7 @@ import { Client } from "pg"
 const { decidirGet, decidirPost, tokenDoCookie } = await import("./acesso.ts")
 const { htmlConta } = await import("./html-conta.ts")
 const { cabecalhoCookieApagado, cabecalhoCookieSessao } = await import("./senha.ts")
+const { pegarTravaProva, soltarTravaProva } = await import("./trava-prova.ts")
 
 const exec = promisify(execFile)
 const container = "custo-chapa-prova-entrar"
@@ -62,6 +63,7 @@ async function sql<T extends Record<string, unknown>>(text: string, params: unkn
 }
 
 test.before(async () => {
+  await pegarTravaProva()
   await exec("docker", ["rm", "-f", container], { windowsHide: true }).catch(() => undefined)
   await exec(
     "docker",
@@ -81,6 +83,20 @@ test.before(async () => {
   const porta = stdout.match(/:(\d+)/)?.[1]
   if (!porta) throw new Error(stdout)
   url = `postgresql://custo:custo@127.0.0.1:${porta}/custo_chapa`
+  const pronta = Date.now()
+  while (Date.now() - pronta < 30_000) {
+    const client = new Client({ connectionString: url })
+    try {
+      await client.connect()
+      await client.query("SELECT 1")
+      break
+    } catch (erro) {
+      if (Date.now() - pronta >= 29_000) throw erro
+      await new Promise((resolver) => setTimeout(resolver, 500))
+    } finally {
+      await client.end().catch(() => undefined)
+    }
+  }
   process.env.DATABASE_URL = url
   process.env.SENHA_ADMIN = "segredo-inicial"
   servidor = http.createServer(async (req, res) => {
@@ -123,10 +139,14 @@ test.before(async () => {
 }, { timeout: 180_000 })
 
 test.after(async () => {
-  servidor.close()
-  const { abrirBanco } = await import("./banco.ts")
-  await abrirBanco(url).fechar()
-  await exec("docker", ["rm", "-f", container], { windowsHide: true }).catch(() => undefined)
+  try {
+    servidor.close()
+    const { abrirBanco } = await import("./banco.ts")
+    await abrirBanco(url).fechar()
+    await exec("docker", ["rm", "-f", container], { windowsHide: true }).catch(() => undefined)
+  } finally {
+    soltarTravaProva()
+  }
 })
 
 test.beforeEach(async () => {
@@ -204,12 +224,22 @@ test("entrar banco parado", async () => {
 })
 
 test("entrar falta a senha da primeira conta", async () => {
-  delete process.env.SENHA_ADMIN
-  await pedir("/entrar")
-  await sql("TRUNCATE sessao, impressora_ativa, cor, mesa, projeto, impressora, conta")
-  const resposta = await pedir("/entrar")
-  assert.equal(resposta.status, 200)
-  assert.match(await resposta.text(), /Falta a senha da primeira conta\./)
+  const anterior = process.env.SENHA_ADMIN
+  try {
+    for (const senha of [undefined, "", "1234567"] as const) {
+      await sql("TRUNCATE sessao, impressora_ativa, cor, mesa, projeto, impressora, conta")
+      if (senha === undefined) delete process.env.SENHA_ADMIN
+      else process.env.SENHA_ADMIN = senha
+      const resposta = await pedir("/entrar")
+      assert.equal(resposta.status, 200)
+      assert.match(await resposta.text(), /Falta a senha da primeira conta\./)
+      const n = await sql<{ n: number }>("SELECT count(*)::int AS n FROM conta")
+      assert.equal(Number(n.rows[0]?.n), 0)
+    }
+  } finally {
+    if (anterior === undefined) delete process.env.SENHA_ADMIN
+    else process.env.SENHA_ADMIN = anterior
+  }
 })
 
 test("login admin grava cookie sessao", async () => {
