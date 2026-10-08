@@ -40,7 +40,7 @@ export function ConfiguracoesForm() {
   const active = activePrinterOf(store)
 
   return (
-    <div className="grid gap-6">
+    <div className="pilha">
       <Card>
         <CardHeader>
           <CardTitle>Máquinas</CardTitle>
@@ -70,7 +70,7 @@ export function ConfiguracoesForm() {
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-medium">{printer.name.trim() || "Sem nome"}</span>
-                    <span className="block text-xs text-muted-foreground">
+                    <span className="legenda block text-muted-foreground">
                       {printer.watts} W · {printer.energyPrice} R$/kWh · {printer.printerPrice} · {printer.lifeHours} h
                     </span>
                   </span>

@@ -164,10 +164,10 @@ function ColorEditor({
 
 function CalculadoraLoading() {
   return (
-    <main className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-8 sm:px-6">
-      <header className="space-y-2">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">Calculadora</h1>
-        <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{vistaCarregamento("calculadora", "lendo").titulo}</p>
+    <main className="coluna coluna-unica py-8">
+      <header className="cabecalho-pagina">
+        <h1 className="titulo-pagina">Calculadora</h1>
+        <p className="lede text-muted-foreground">{vistaCarregamento("calculadora", "lendo").titulo}</p>
       </header>
     </main>
   )
@@ -176,9 +176,9 @@ function CalculadoraLoading() {
 function CalculadoraErro() {
   const vista = vistaCarregamento("calculadora", "erro")
   return (
-    <main className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-8 sm:px-6">
-      <header className="space-y-2">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">{vista.titulo}</h1>
+    <main className="coluna coluna-unica py-8">
+      <header className="cabecalho-pagina">
+        <h1 className="titulo-pagina">{vista.titulo}</h1>
       </header>
     </main>
   )
@@ -315,15 +315,16 @@ function CalculadoraEditor({
       : "O tempo e o peso de cada cor são da mesa cheia. As cópias dividem o lote em cada peça."
 
   return (
-    <main className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-8 pb-28 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] lg:items-start lg:pb-10">
-      <div className="grid gap-6">
-        <header className="space-y-2">
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">Calculadora</h1>
-          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-            Um objeto pode levar várias cores na mesma impressão. Energia e depreciação vêm da impressora
-            marcada. {frases.gravar}
-          </p>
-        </header>
+    <main className="coluna py-8 pb-28 md:pb-10">
+      <header className="cabecalho-pagina">
+        <h1 className="titulo-pagina">Calculadora</h1>
+        <p className="lede text-muted-foreground">
+          Um objeto pode levar várias cores na mesma impressão. Energia e depreciação vêm da impressora
+          marcada. {frases.gravar}
+        </p>
+      </header>
+      <div className="grade-calculadora">
+        <div className="pilha">
 
         {frases.ausente ? (
           <p className="rounded-lg bg-muted/60 p-3 text-sm text-muted-foreground" data-testid="projeto-ausente">
@@ -413,7 +414,7 @@ function CalculadoraEditor({
           </CardHeader>
           <CardContent className="grid gap-5">
             <fieldset className="grid gap-2">
-              <legend className="text-sm font-medium">O tempo e os pesos são de</legend>
+              <legend className="legenda">O tempo e os pesos são de</legend>
               <div className="grid gap-2 sm:grid-cols-2">
                 <ModeOption
                   name="modo"
@@ -457,7 +458,7 @@ function CalculadoraEditor({
 
             <div className="grid gap-3">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-sm font-medium">Filamentos do objeto</h2>
+                <h2 className="legenda">Filamentos do objeto</h2>
                 <Button type="button" variant="outline" className="h-11" onClick={addColor} data-testid="adicionar-cor">
                   Adicionar cor
                 </Button>
@@ -483,9 +484,9 @@ function CalculadoraEditor({
             />
           </CardContent>
         </Card>
-      </div>
+        </div>
 
-      <Card className="lg:sticky lg:top-28">
+      <Card className="md:sticky md:top-28">
         <CardHeader>
           <CardTitle>Resultado</CardTitle>
           <CardDescription data-testid="origem-impressora">
@@ -504,10 +505,10 @@ function CalculadoraEditor({
 
           <table className="w-full text-sm" data-testid="tabela-custos">
             <thead>
-              <tr className="text-xs text-muted-foreground">
-                <th className="py-1 text-left font-medium"> </th>
-                <th className="py-1 text-right font-medium">Peça</th>
-                <th className="py-1 text-right font-medium">Lote</th>
+              <tr className="text-muted-foreground">
+                <th className="legenda py-1 text-left"> </th>
+                <th className="legenda py-1 text-right">Peça</th>
+                <th className="legenda py-1 text-right">Lote</th>
               </tr>
             </thead>
             <tbody>
@@ -551,17 +552,15 @@ function CalculadoraEditor({
           ) : null}
         </CardContent>
       </Card>
+      </div>
 
-      <div
-        className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-2 gap-3 border-t bg-background/95 p-3 backdrop-blur lg:hidden"
-        aria-hidden="true"
-      >
+      <div className="barra-totais" aria-hidden="true">
         <div>
-          <p className="text-xs text-muted-foreground">Por peça</p>
+          <p className="legenda text-muted-foreground">Por peça</p>
           <p className="font-mono text-sm font-semibold">{showMoney(result.piece.total)}</p>
         </div>
         <div>
-          <p className="text-xs text-muted-foreground">Lote</p>
+          <p className="legenda text-muted-foreground">Lote</p>
           <p className="font-mono text-sm font-semibold">{showMoney(result.lot.total)}</p>
         </div>
       </div>
@@ -609,7 +608,7 @@ function TotalBlock({
 }) {
   return (
     <div className="rounded-lg bg-muted/60 p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="legenda text-muted-foreground">{label}</p>
       <p className="font-mono text-xl font-semibold tracking-tight" data-testid={`total-${testPrefix}`}>
         {showMoney(money)}
       </p>

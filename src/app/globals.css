@@ -49,30 +49,30 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.64 0.19 42);
-  --primary-foreground: oklch(0.18 0.03 42);
+  --background: #FFFFFF;
+  --foreground: #1A1A1A;
+  --card: #FFFFFF;
+  --card-foreground: #1A1A1A;
+  --popover: #FFFFFF;
+  --popover-foreground: #1A1A1A;
+  --primary: #1A1A1A;
+  --primary-foreground: #FFFFFF;
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --muted: #F5F1E8;
+  --muted-foreground: #4A4A4A;
+  --accent: #F5F1E8;
+  --accent-foreground: #1A1A1A;
+  --destructive: #9B1C1C;
+  --border: #808080;
+  --input: #808080;
+  --ring: #B38B6D;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --radius: 0px;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -121,10 +121,117 @@
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
   html {
     @apply font-sans;
+    overflow-x: clip;
+  }
+  body {
+    overflow-x: clip;
+    max-width: 100%;
+    background: var(--background);
+    color: var(--foreground);
+    min-height: 100dvh;
+  }
+}
+
+.coluna {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-inline: 1.5rem;
+}
+
+.coluna-unica {
+  display: flex;
+  flex-direction: column;
+}
+
+.cabecalho-pagina {
+  margin-bottom: clamp(4rem, 8vw, 8rem);
+}
+
+.pilha {
+  display: grid;
+  gap: 1.5rem;
+}
+
+html .titulo-pagina {
+  font-size: 2.25rem;
+  font-weight: 700;
+}
+
+html .lede {
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.6;
+  max-width: 72ch;
+}
+
+html [data-slot="card-title"] {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+html .legenda {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #1A1A1A;
+  color: #FFFFFF;
+  border-bottom: 1px solid #808080;
+}
+
+.nav-secoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding-bottom: 0.75rem;
+}
+
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 44px;
+  color: #FFFFFF;
+}
+
+.grade-calculadora {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.grade-calculadora > * {
+  min-width: 0;
+}
+
+.barra-totais {
+  position: fixed;
+  z-index: 100;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  border-top: 1px solid #808080;
+  background: var(--background);
+  padding: 0.75rem 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .grade-calculadora {
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
+  }
+
+  .barra-totais {
+    display: none;
   }
 }

@@ -75,7 +75,7 @@ export function ListaProjetos() {
   }
 
   return (
-    <div className="grid gap-3">
+    <div className="pilha">
       {projects.map((project) => {
         const printer = store.printers.find((item) => item.id === project.printerId) ?? null
         const total = printer ? calculate(draftToCalcInput(project, printer)).lot.total : null
@@ -97,7 +97,7 @@ export function ListaProjetos() {
               {printer ? (
                 <p className="font-mono text-lg font-semibold" data-testid={`total-projeto-${project.id}`}>
                   {total === null ? "Total incompleto" : formatBRL(total)}
-                  <span className="ml-2 font-sans text-xs font-normal text-muted-foreground">lote, tarifa atual</span>
+                  <span className="legenda ml-2 text-muted-foreground">lote, tarifa atual</span>
                 </p>
               ) : (
                 <p className="text-sm text-muted-foreground">

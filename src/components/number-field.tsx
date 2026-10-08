@@ -35,7 +35,7 @@ export function NumberField({
         data-testid={testId}
         className="h-11 font-mono"
       />
-      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+      {hint ? <p className="legenda text-muted-foreground">{hint}</p> : null}
       {parsed.status === "invalid" ? (
         <p className="text-xs text-destructive">Use zero ou um número positivo.</p>
       ) : null}

@@ -2,8 +2,6 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { cn } from "cn"
-import { buttonVariants } from "@/components/ui/button"
 
 const navItems = [
   { href: "/", label: "Calculadora" },
@@ -15,15 +13,15 @@ export function SiteHeader() {
   const pathname = usePathname()
 
   return (
-    <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-4 py-3 sm:px-6">
-        <div className="flex items-baseline justify-between gap-3">
-          <Link href="/" className="font-mono text-sm font-semibold tracking-tight">
-            custo<span className="text-primary">/</span>chapa
+    <header className="site-header">
+      <div className="coluna py-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <Link href="/" className="wordmark">
+            custo/chapa
           </Link>
-          <p className="text-xs text-muted-foreground">precificação de impressão</p>
+          <p>precificação de impressão</p>
         </div>
-        <nav aria-label="Seções" className="grid grid-cols-3 gap-1 sm:flex">
+        <nav aria-label="Seções" className="nav-secoes">
           {navItems.map((item) => {
             const active = pathname === item.href
             return (
@@ -31,10 +29,7 @@ export function SiteHeader() {
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className={cn(
-                  buttonVariants({ variant: active ? "secondary" : "ghost" }),
-                  "h-11 px-2 text-center sm:px-3"
-                )}
+                className="nav-link"
               >
                 {item.label}
               </Link>
