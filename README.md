@@ -29,3 +29,7 @@ O [AGENTS.md](AGENTS.md) é o mapa para quem altera o código. O detalhe está e
 ## Fora desta versão
 
 Login, orçamento em PDF ou texto, refugo, impressão falha, purge, mão de obra por hora e tarifa diferente por projeto.
+
+## Backlog
+
+Ideias para depois, ainda sem plano: [`.specs/BACKLOG.md`](.specs/BACKLOG.md). A primeira é um estoque de filamentos (cor, preço pago e marca) cujo R$/kg entra na calculadora ao adicionar a cor.
