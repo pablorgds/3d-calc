@@ -191,18 +191,23 @@ Status: done
 
 **C44** - Ao montar, o `main` vai de `opacity: 0` e `translateY(16px)` a `opacity: 1` e `translateY(0)` em `420ms` ease-out (AC 44)
 Proof: `node --experimental-strip-types --test src/lib/movimento.test.ts --test-name-pattern "main entra em 420ms"`
+Status: done
 
 **C45** - Com mais de um item, cada item da lista de projetos e da lista de filamentos espera `80ms` vezes o índice (AC 45)
 Proof: `node --experimental-strip-types --test src/lib/movimento.test.ts --test-name-pattern "atraso 80ms por indice"`
+Status: done
 
 **C46** - A troca entre `/`, `/projetos` e `/configuracoes` esmaece o `main` em `200ms` (AC 46)
 Proof: `node --experimental-strip-types --test src/lib/movimento.test.ts --test-name-pattern "troca de rota em 200ms"`
+Status: done
 
 **C47** - Com `prefers-reduced-motion: reduce`, as durações da entrada, do atraso da lista e do esmaecimento de rota são `0ms` (AC 47)
 Proof: `node --experimental-strip-types --test src/lib/movimento.test.ts --test-name-pattern "reduced motion 0ms"`
+Status: done
 
 **C48** - A entrada e o esmaecimento de rota animam só `opacity` e `transform` (AC 48)
 Proof: `node --experimental-strip-types --test src/lib/movimento.test.ts --test-name-pattern "so opacity e transform"`
+Status: done
 
 ### S4 - Tokens escuros · 6 files · 13 KB · ~3k
 

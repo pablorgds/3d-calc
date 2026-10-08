@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type CSSProperties } from "react"
 import Link from "next/link"
 import { buttonVariants } from "@/components/ui/button"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,7 @@ import { calculate, combineTime, draftToCalcInput, formatBRL, formatDuration } f
 import { useLeitura } from "@/lib/impressora"
 import { deleteProject, duplicateProject, type Project } from "@/lib/projetos"
 import { vistaCarregamento } from "@/lib/vistas"
+import { atrasoLista } from "@/lib/movimento"
 import { cn } from "cn"
 
 function colorLabel(count: number) {
@@ -76,7 +77,7 @@ export function ListaProjetos() {
 
   return (
     <div className="pilha">
-      {projects.map((project) => {
+      {projects.map((project, index) => {
         const printer = store.printers.find((item) => item.id === project.printerId) ?? null
         const total = printer ? calculate(draftToCalcInput(project, printer)).lot.total : null
         const when = new Date(project.updatedAt).toLocaleString("pt-BR", {
@@ -86,7 +87,12 @@ export function ListaProjetos() {
         const confirming = pendingDelete === project.id
         const parts = projectParts(project)
         return (
-          <Card key={project.id} data-testid={`projeto-${project.id}`}>
+          <Card
+            key={project.id}
+            className="item-lista"
+            style={{ "--atraso": atrasoLista(index, projects.length) } as CSSProperties}
+            data-testid={`projeto-${project.id}`}
+          >
             <CardHeader>
               <CardTitle>{project.name.trim() || "Sem nome"}</CardTitle>
               <CardDescription>

@@ -236,6 +236,63 @@ html .legenda {
   }
 }
 
+main[data-motion="entrar"] {
+  animation-name: entrar;
+  animation-duration: 420ms;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+
+main[data-motion="troca"] {
+  animation-name: troca;
+  animation-duration: 200ms;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+
+@keyframes entrar {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes troca {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.item-lista {
+  animation-name: entrar;
+  animation-duration: 420ms;
+  animation-timing-function: ease-out;
+  animation-delay: var(--atraso, 0ms);
+  animation-fill-mode: both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  main[data-motion="entrar"] {
+    animation-duration: 0ms;
+  }
+
+  main[data-motion="troca"] {
+    animation-duration: 0ms;
+  }
+
+  .item-lista {
+    animation-duration: 0ms;
+    animation-delay: 0ms;
+  }
+}
+
 html .btn-primario {
   background: var(--primary);
   color: var(--primary-foreground);

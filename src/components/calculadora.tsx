@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, type CSSProperties } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { NumberField } from "@/components/number-field"
+import { useMovimento } from "@/components/movimento"
 import {
   calculate,
   draftToCalcInput,
@@ -24,6 +25,7 @@ import { setActivePrinter, useLeitura, usePrinterStore } from "@/lib/impressora"
 import { activePrinterOf } from "@/lib/impressora-store"
 import { writeProject, type Project } from "@/lib/projetos"
 import { frasesCalculadora, vistaCarregamento } from "@/lib/vistas"
+import { atrasoLista, type TipoMontagem } from "@/lib/movimento"
 
 const swatches = ["#78716c", "#57534e", "#a8a29e", "#44403c"]
 
@@ -162,9 +164,9 @@ function ColorEditor({
   )
 }
 
-function CalculadoraLoading() {
+function CalculadoraLoading({ tipo }: { tipo: TipoMontagem }) {
   return (
-    <main className="coluna coluna-unica py-8">
+    <main className="coluna coluna-unica py-8" data-motion={tipo}>
       <header className="cabecalho-pagina">
         <h1 className="titulo-pagina">Calculadora</h1>
         <p className="lede text-muted-foreground">{vistaCarregamento("calculadora", "lendo").titulo}</p>
@@ -173,10 +175,10 @@ function CalculadoraLoading() {
   )
 }
 
-function CalculadoraErro() {
+function CalculadoraErro({ tipo }: { tipo: TipoMontagem }) {
   const vista = vistaCarregamento("calculadora", "erro")
   return (
-    <main className="coluna coluna-unica py-8">
+    <main className="coluna coluna-unica py-8" data-motion={tipo}>
       <header className="cabecalho-pagina">
         <h1 className="titulo-pagina">{vista.titulo}</h1>
       </header>
@@ -186,8 +188,9 @@ function CalculadoraErro() {
 
 export function Calculadora({ projectId }: { projectId: string | null }) {
   const leitura = useLeitura()
-  if (leitura.status === "erro") return <CalculadoraErro />
-  if (leitura.status !== "pronto") return <CalculadoraLoading />
+  const tipo = useMovimento()
+  if (leitura.status === "erro") return <CalculadoraErro tipo={tipo} />
+  if (leitura.status !== "pronto") return <CalculadoraLoading tipo={tipo} />
   const project = projectId ? (leitura.projects.find((item) => item.id === projectId) ?? null) : null
   return (
     <CalculadoraEditor
@@ -195,6 +198,7 @@ export function Calculadora({ projectId }: { projectId: string | null }) {
       projectId={projectId}
       initial={project}
       missing={projectId !== null && project === null}
+      tipo={tipo}
     />
   )
 }
@@ -203,10 +207,12 @@ function CalculadoraEditor({
   projectId,
   initial,
   missing,
+  tipo,
 }: {
   projectId: string | null
   initial: Project | null
   missing: boolean
+  tipo: TipoMontagem
 }) {
   const router = useRouter()
   const printerStore = usePrinterStore()
@@ -299,7 +305,7 @@ function CalculadoraEditor({
     setNameError(null)
   }
 
-  if (!printerStore || !printer || !result) return <CalculadoraLoading />
+  if (!printerStore || !printer || !result) return <CalculadoraLoading tipo={tipo} />
 
   const frases = frasesCalculadora(missing ? "ausente" : projectId ? "gravado" : "novo")
   const linkedPrinterMissing =
@@ -315,7 +321,7 @@ function CalculadoraEditor({
       : "O tempo e o peso de cada cor são da mesa cheia. As cópias dividem o lote em cada peça."
 
   return (
-    <main className="coluna py-8 pb-28 md:pb-10">
+    <main className="coluna py-8 pb-28 md:pb-10" data-motion={tipo}>
       <header className="cabecalho-pagina">
         <h1 className="titulo-pagina">Calculadora</h1>
         <p className="lede text-muted-foreground">
@@ -468,8 +474,14 @@ function CalculadoraEditor({
                   Nenhuma cor ainda. Sem filamento, o material fica em R$ 0,00.
                 </p>
               ) : (
-                colors.map((color) => (
-                  <ColorEditor key={color.id} color={color} onChange={updateColor} onRemove={removeColor} />
+                colors.map((color, index) => (
+                  <div
+                    key={color.id}
+                    className="item-lista"
+                    style={{ "--atraso": atrasoLista(index, colors.length) } as CSSProperties}
+                  >
+                    <ColorEditor color={color} onChange={updateColor} onRemove={removeColor} />
+                  </div>
                 ))
               )}
             </div>
