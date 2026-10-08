@@ -213,30 +213,39 @@ Status: done
 
 **C49** - Com a classe `dark` em `html`, o fundo da página é `#1A1A1A` e o texto do `body` é `#FFFFFF` (AC 49)
 Proof: `node --experimental-strip-types --test src/lib/tema-escuro.test.ts --test-name-pattern "fundo e texto escuros"`
+Status: done
 
 **C50** - Com a classe `dark`, o botão primário tem fundo `#FFFFFF`, texto `#1A1A1A`, font-weight `600`, padding `12px`, border-radius `0` e min-height `44px` (AC 50)
 Proof: `node --experimental-strip-types --test src/lib/tema-escuro.test.ts --test-name-pattern "botao primario escuro"`
+Status: done
 
 **C51** - No hover do botão primário, com a classe `dark`, o fundo vai a `#EBEBEB` e a sombra a `0 4px 12px rgba(0,0,0,0.12)` em `200ms` ease-out (AC 51)
 Proof: `node --experimental-strip-types --test src/lib/tema-escuro.test.ts --test-name-pattern "hover do primario escuro"`
+Status: done
 
 **C52** - Com a classe `dark`, o botão outline tem borda `1.5px` `#808080`, texto `#FFFFFF`, border-radius `0` e hover com fundo `#2E2E2E` (AC 52)
 Proof: `node --experimental-strip-types --test src/lib/tema-escuro.test.ts --test-name-pattern "botao outline escuro"`
+Status: done
 
 **C53** - Com a classe `dark`, o botão ghost tem borda de largura `0`, texto `#FFFFFF`, border-radius `0` e hover com fundo `#2E2E2E` (AC 53)
 Proof: `node --experimental-strip-types --test src/lib/tema-escuro.test.ts --test-name-pattern "botao ghost escuro"`
+Status: done
 
 **C54** - Com a classe `dark`, cada card tem fundo `#242424`, border-radius `0`, borda `1px` `#808080` e sombra `0 2px 12px rgba(0,0,0,0.06)` (AC 54)
 Proof: `node --experimental-strip-types --test src/lib/tema-escuro.test.ts --test-name-pattern "card escuro"`
+Status: done
 
 **C55** - Com a classe `dark`, a lavagem muted é `#2E2E2E` e o texto secundário é `#D6D6D6` (AC 55)
 Proof: `node --experimental-strip-types --test src/lib/tema-escuro.test.ts --test-name-pattern "muted escuro D6D6D6"`
+Status: done
 
 **C56** - Campo numérico vazio, com a classe `dark`, mostra `Campo vazio.` abaixo do campo, em `#D6D6D6` (AC 56)
 Proof: `node --experimental-strip-types --test src/lib/tema-escuro.test.ts --test-name-pattern "campo vazio no escuro"`
+Status: done
 
 **C58** - `.dark` grava `--background #1A1A1A`, `--foreground #FFFFFF`, `--primary #FFFFFF`, `--primary-foreground #1A1A1A`, `--card #242424`, `--muted #2E2E2E` e `--muted-foreground #D6D6D6` (door 1)
 Proof: `node --experimental-strip-types --test src/lib/tema-escuro.test.ts --test-name-pattern "tokens escuros no dark"`
+Status: done
 
 ## Coverage
 
