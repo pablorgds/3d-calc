@@ -18,7 +18,7 @@
 **Feature**: url-publica
 **Where**: C1–C23 done. Proofs in `entrar.test.ts`, `compose.test.ts`, and `docs-banco.test.ts` passed.
 **In progress**: none
-**Next step**: independent verifier over `241b8d2..HEAD`. Go-live is outside the repo: name the Tailscale node `calculadora`, set `ORIGEM_PUBLICA`, run `tailscale funnel 4317` on this PC.
+**Next step**: go-live is outside the repo. Name the Tailscale node `calculadora`, set `ORIGEM_PUBLICA` to `calculadora.<tailnet>.ts.net`, and run `tailscale funnel 4317` on this PC.
 **Blockers**: go-live still needs the Tailscale node `calculadora` and `ORIGEM_PUBLICA`.
 **Uncommitted**: none
 **Branch**: main
