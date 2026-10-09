@@ -6,7 +6,8 @@ Next.js 16 (App Router), React 19, Tailwind CSS 4 e componentes no estilo shadcn
 
 | Rota | Página | Cliente |
 | --- | --- | --- |
-| `/entrar` | `src/app/entrar/page.tsx` | formulário de e-mail e senha |
+| `/entrar` | `src/app/entrar/page.tsx` | e-mail, senha e link para criar conta |
+| `/criar` | `src/app/criar/page.tsx` | e-mail, senha e confirmação de senha |
 | `/` | `src/app/page.tsx` | `Calculadora` |
 | `/projetos` | `src/app/projetos/page.tsx` | `ListaProjetos` |
 | `/configuracoes` | `src/app/configuracoes/page.tsx` | `ConfiguracoesForm` |
@@ -15,7 +16,7 @@ Next.js 16 (App Router), React 19, Tailwind CSS 4 e componentes no estilo shadcn
 
 A calculadora lê `?projeto=` no server component e passa o id adiante. A `key` do componente muda com o id, então abrir outro projeto remonta o formulário. Projetos e Configurações só renderizam um `PageIntro` e o cliente.
 
-`src/app/layout.tsx` coloca o `SiteHeader` e o idioma `pt-BR`. A navegação é Calculadora, Projetos, Configurações. Largura máxima `max-w-5xl`. Controles de ação usam altura `h-11`.
+`src/app/layout.tsx` coloca o `SiteHeader` e o idioma `pt-BR`. A navegação é Calculadora, Projetos, Configurações, na mesma linha do e-mail da conta e de Sair. Em `/entrar` e `/criar` essa linha não aparece. Largura máxima `max-w-5xl`. Controles de ação usam altura `h-11`.
 
 `src/components/ui` é primitivo visual. Não coloque regra de precificação ali.
 

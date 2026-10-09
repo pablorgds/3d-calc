@@ -6,6 +6,7 @@ export type DecisaoGet =
   | { kind: "banco"; status: 200 }
   | { kind: "falta-senha"; status: 200 }
   | { kind: "entrar"; status: 200; aviso: string | null }
+  | { kind: "criar"; status: 200; aviso: string | null }
   | { kind: "calculadora"; status: 200; ausente: boolean; sair: true }
   | { kind: "projetos"; status: 200; nomes: string[]; sair: true }
   | { kind: "configuracoes"; status: 200; emails: string[]; redefinir: boolean; sair: true; aviso: string | null }
@@ -29,11 +30,12 @@ export async function decidirGet(path: string, token: string | null, projetoId: 
     return { kind: "redirect", status: 307, location: "/entrar" }
   }
   const sessao = token ? await banco.lerSessao(token) : null
-  if (path === "/entrar") {
+  if (path === "/entrar" || path === "/criar") {
     if (sessao) return { kind: "redirect", status: 307, location: "/" }
     const contas = await banco.contarContas()
     if (contas === null) return { kind: "banco", status: 200 }
     if (contas === 0) return { kind: "falta-senha", status: 200 }
+    if (path === "/criar") return { kind: "criar", status: 200, aviso }
     return { kind: "entrar", status: 200, aviso }
   }
   if (!ROTAS.has(path) || !sessao) return { kind: "redirect", status: 307, location: "/entrar" }
@@ -65,7 +67,8 @@ export async function decidirPost(
   acao: string,
   email: string,
   senha: string,
-  token: string | null
+  token: string | null,
+  confirmacao: string | null = null
 ): Promise<DecisaoPost> {
   const banco = abrirBancoDoAmbiente()
   await banco.garantirPrimeiraConta(process.env.SENHA_ADMIN)
@@ -74,6 +77,9 @@ export async function decidirPost(
     return { status: 303, location: "/entrar", apagarCookie: true }
   }
   if (acao === "criar") {
+    if (confirmacao !== null && confirmacao !== senha) {
+      return { status: 303, location: comAviso("/criar", "As senhas não conferem.") }
+    }
     const criada = await banco.criarConta(email, senha)
     if (criada.status === "criada") {
       const entrada = await banco.entrar(email, senha)
@@ -87,7 +93,7 @@ export async function decidirPost(
           : criada.status === "email-invalido"
             ? "E-mail inválido."
             : "Não deu para ler o banco."
-    return { status: 303, location: comAviso("/entrar", aviso) }
+    return { status: 303, location: comAviso("/criar", aviso) }
   }
   if (acao === "redefinir") {
     const sessao = token ? await banco.lerSessao(token) : null

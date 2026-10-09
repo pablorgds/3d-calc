@@ -29,6 +29,10 @@ export function htmlConta(decisao: DecisaoGet) {
   if (decisao.kind === "banco") return entrar(TITULO_ERRO, null, false)
   if (decisao.kind === "falta-senha") return entrar("Falta a senha da primeira conta.", null, false)
   if (decisao.kind === "entrar") return entrar("Entrar", decisao.aviso, true)
+  if (decisao.kind === "criar") {
+    const avisoHtml = decisao.aviso ? `<p>${decisao.aviso}</p>` : ""
+    return `<main><h1>Criar conta</h1>${avisoHtml}<form method="post" action="/sessao"><label for="email">E-mail</label><input id="email" name="email" /><label for="senha">Senha</label><input id="senha" name="senha" type="password" /><label for="confirmacao">Confirmar senha</label><input id="confirmacao" name="confirmacao" type="password" /><button type="submit" name="acao" value="criar">Criar conta</button></form></main>`
+  }
   if (decisao.kind === "calculadora") {
     const ausente = decisao.ausente ? `<p>${FRASE_AUSENTE}</p>` : ""
     return `${sair()}<main><h1>Calculadora</h1><p>${FRASE_GRAVAR}</p>${ausente}</main>`

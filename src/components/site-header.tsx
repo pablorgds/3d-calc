@@ -10,34 +10,46 @@ const navItems = [
   { href: "/configuracoes", label: "Configurações" },
 ]
 
-export function SiteHeader({ sair = false }: { sair?: boolean }) {
+const rotasPublicas = new Set(["/entrar", "/criar"])
+
+export function SiteHeader({ email = null }: { email?: string | null }) {
   const pathname = usePathname()
+  const publico = rotasPublicas.has(pathname)
 
   return (
     <header className="site-header">
       <div className="coluna py-3">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <Link href="/" className="wordmark">
+          <Link href={email ? "/" : "/entrar"} className="wordmark">
             custo/chapa
           </Link>
           <p>precificação de impressão</p>
         </div>
-        <nav aria-label="Seções" className="nav-secoes">
-          {navItems.map((item) => {
-            const active = pathname === item.href
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                className="nav-link"
-              >
-                {item.label}
-              </Link>
-            )
-          })}
-        </nav>
-        {sair ? <BotaoSair /> : null}
+        {publico ? null : (
+          <div className="nav-linha">
+            <nav aria-label="Seções" className="nav-secoes">
+              {navItems.map((item) => {
+                const active = pathname === item.href
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={active ? "page" : undefined}
+                    className="nav-link"
+                  >
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </nav>
+            {email ? (
+              <div className="nav-conta">
+                <p className="nav-email">{email}</p>
+                <BotaoSair />
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
     </header>
   )
