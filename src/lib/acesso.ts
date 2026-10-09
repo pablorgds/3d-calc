@@ -9,9 +9,10 @@ export type DecisaoGet =
   | { kind: "criar"; status: 200; aviso: string | null }
   | { kind: "calculadora"; status: 200; ausente: boolean; sair: true }
   | { kind: "projetos"; status: 200; nomes: string[]; sair: true }
-  | { kind: "configuracoes"; status: 200; emails: string[]; redefinir: boolean; sair: true; aviso: string | null }
+  | { kind: "configuracoes"; status: 200; sair: true }
+  | { kind: "usuarios"; status: 200; emails: string[]; sair: true; aviso: string | null }
 
-const ROTAS = new Set(["/", "/projetos", "/configuracoes", "/entrar"])
+const ROTAS = new Set(["/", "/projetos", "/configuracoes", "/usuarios", "/entrar"])
 
 export function tokenDoCookie(cookie: string | null) {
   if (!cookie) return null
@@ -44,9 +45,11 @@ export async function decidirGet(path: string, token: string | null, projetoId: 
     const nomes = lido.status === "ok" ? lido.projects.map((project) => project.name) : []
     return { kind: "projetos", status: 200, nomes, sair: true }
   }
-  if (path === "/configuracoes") {
-    const emails = sessao.papel === "admin" ? await banco.listarOutrasContas(sessao.contaId) : []
-    return { kind: "configuracoes", status: 200, emails, redefinir: sessao.papel === "admin", sair: true, aviso }
+  if (path === "/configuracoes") return { kind: "configuracoes", status: 200, sair: true }
+  if (path === "/usuarios") {
+    if (sessao.papel !== "admin") return { kind: "redirect", status: 307, location: "/" }
+    const emails = await banco.listarOutrasContas(sessao.contaId)
+    return { kind: "usuarios", status: 200, emails, sair: true, aviso }
   }
   let ausente = false
   if (projetoId) {
@@ -95,14 +98,35 @@ export async function decidirPost(
             : "Não deu para ler o banco."
     return { status: 303, location: comAviso("/criar", aviso) }
   }
-  if (acao === "redefinir") {
+  if (acao === "incluir" || acao === "redefinir" || acao === "apagar") {
     const sessao = token ? await banco.lerSessao(token) : null
     if (!sessao) return { status: 303, location: "/entrar" }
+    if (sessao.papel !== "admin") return { status: 303, location: "/" }
+    if (acao === "incluir") {
+      const criada = await banco.criarConta(email, senha)
+      if (criada.status === "criada") return { status: 303, location: "/usuarios" }
+      const aviso =
+        criada.status === "duplicado"
+          ? "Esse e-mail já tem conta."
+          : criada.status === "senha-curta"
+            ? "A senha precisa de 8 caracteres."
+            : criada.status === "email-invalido"
+              ? "E-mail inválido."
+              : "Não deu para ler o banco."
+      return { status: 303, location: comAviso("/usuarios", aviso) }
+    }
+    if (acao === "apagar") {
+      const apagada = await banco.apagarConta(sessao.contaId, email)
+      if (apagada.status === "apagada") return { status: 303, location: "/usuarios" }
+      if (apagada.status === "erro") return { status: 303, location: comAviso("/usuarios", "Não deu para ler o banco.") }
+      return { status: 303, location: comAviso("/usuarios", "Essa conta não sai.") }
+    }
     const resultado = await banco.redefinirSenha(sessao.contaId, email, senha)
     if (resultado.status === "senha-curta") {
-      return { status: 303, location: comAviso("/configuracoes", "A senha precisa de 8 caracteres.") }
+      return { status: 303, location: comAviso("/usuarios", "A senha precisa de 8 caracteres.") }
     }
-    return { status: 303, location: "/configuracoes" }
+    if (resultado.status === "erro") return { status: 303, location: comAviso("/usuarios", "Não deu para ler o banco.") }
+    return { status: 303, location: "/usuarios" }
   }
   const entrada = await banco.entrar(email, senha)
   if (entrada.status === "ok") return { status: 303, location: "/", token: entrada.token }

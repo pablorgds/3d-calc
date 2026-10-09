@@ -6,7 +6,7 @@ export default function NotFound() {
   return (
     <PageIntro
       title="Página não encontrada"
-      lede="Esse endereço não existe. As seções do app são Calculadora, Projetos e Configurações."
+      lede="Esse endereço não existe. As seções do app são Calculadora, Projetos, Configurações e Usuários."
     >
       <Link href="/" className={buttonVariants()}>
         Ir para a calculadora

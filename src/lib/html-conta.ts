@@ -13,16 +13,17 @@ function entrar(titulo: string, aviso: string | null, campos: boolean) {
   return `<main><h1>${titulo}</h1>${avisoHtml}${form}</main>`
 }
 
-function redefinir(emails: string[], aviso: string | null) {
-  if (emails.length === 0) return "<p>Nenhuma outra conta.</p>"
+function usuarios(emails: string[], aviso: string | null) {
   const avisoHtml = aviso ? `<p>${aviso}</p>` : ""
+  const incluir = `<form method="post" action="/sessao"><label for="email">E-mail</label><input id="email" name="email" /><label for="senha">Senha</label><input id="senha" name="senha" type="password" /><button type="submit" name="acao" value="incluir">Incluir</button></form>`
+  if (emails.length === 0) return `${sair()}<main><h1>Usuários</h1>${avisoHtml}${incluir}<p>Nenhuma outra conta.</p></main>`
   const itens = emails
     .map(
       (email) =>
-        `<li><span>${email}</span><button type="button">Redefinir senha</button></li>`
+        `<li><span>${email}</span><button type="button">Nova senha</button><button type="submit" name="acao" value="apagar">Apagar</button></li>`
     )
     .join("")
-  return `<section><h2>Outras contas</h2>${avisoHtml}<ul>${itens}</ul></section>`
+  return `${sair()}<main><h1>Usuários</h1>${avisoHtml}${incluir}<ul>${itens}</ul></main>`
 }
 
 export function htmlConta(decisao: DecisaoGet) {
@@ -41,9 +42,7 @@ export function htmlConta(decisao: DecisaoGet) {
     const itens = decisao.nomes.map((nome) => `<li>${nome}</li>`).join("")
     return `${sair()}<main><h1>Projetos</h1><ul>${itens}</ul></main>`
   }
-  if (decisao.kind === "configuracoes") {
-    const bloco = decisao.redefinir ? redefinir(decisao.emails, decisao.aviso) : ""
-    return `${sair()}<main><h1>Configurações</h1>${bloco}</main>`
-  }
+  if (decisao.kind === "configuracoes") return `${sair()}<main><h1>Configurações</h1></main>`
+  if (decisao.kind === "usuarios") return usuarios(decisao.emails, decisao.aviso)
   return ""
 }

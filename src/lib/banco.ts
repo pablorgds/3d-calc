@@ -59,6 +59,8 @@ export type Entrada =
 
 export type Redefinicao = { status: "inalterado" } | { status: "trocada" } | { status: "senha-curta" } | { status: "erro" }
 
+export type ContaApagada = { status: "apagada" } | { status: "inalterado" } | { status: "erro" }
+
 export type Banco = {
   ler(chaves?: { impressora: string | null; projetos: string | null }): Promise<Resultado>
   gravarProjeto(value: unknown): Promise<Resultado | { status: "rejeitado" }>
@@ -77,6 +79,7 @@ export type Banco = {
   lerSessao(token: string): Promise<SessaoConta | null>
   apagarSessao(token: string): Promise<void>
   redefinirSenha(atorId: string, email: string, senha: string | null): Promise<Redefinicao>
+  apagarConta(atorId: string, email: string): Promise<ContaApagada>
   listarOutrasContas(atorId: string): Promise<string[]>
   contarContas(): Promise<number | null>
   fechar(): Promise<void>
@@ -1064,6 +1067,42 @@ function criar(pool: Pool, databaseUrl: string): Banco {
       }
     },
 
+    async apagarConta(atorId, email) {
+      try {
+        return await comCliente(async (client) => {
+          await garantirSchema(client)
+          await client.query("BEGIN")
+          try {
+            const ator = await client.query<{ papel: string }>("SELECT papel FROM conta WHERE id = $1", [atorId])
+            const alvo = emailNormalizado(email)
+            const conta = await client.query<{ id: string; email: string; papel: string }>(
+              "SELECT id, email, papel FROM conta WHERE lower(email) = $1",
+              [alvo]
+            )
+            const linha = conta.rows[0]
+            const pode =
+              ator.rows[0]?.papel === "admin" && linha && linha.papel !== "admin" && linha.email !== EMAIL_ADMIN
+            if (!pode) {
+              await client.query("COMMIT")
+              return { status: "inalterado" as const }
+            }
+            await client.query("DELETE FROM projeto WHERE conta_id = $1", [linha.id])
+            await client.query("DELETE FROM impressora_ativa WHERE conta_id = $1", [linha.id])
+            await client.query("DELETE FROM impressora WHERE conta_id = $1", [linha.id])
+            await client.query("DELETE FROM conta WHERE id = $1", [linha.id])
+            await client.query("COMMIT")
+            return { status: "apagada" as const }
+          } catch (error) {
+            await rollback(client)
+            throw error
+          }
+        })
+      } catch (error) {
+        if (bancoIndisponivel(error)) return { status: "erro" }
+        throw error
+      }
+    },
+
     async listarOutrasContas(atorId) {
       try {
         return await comCliente(async (client) => {
@@ -1177,6 +1216,10 @@ export function abrirBancoDoAmbiente(): Banco {
       },
       async apagarSessao() {},
       async redefinirSenha() {
+        avisarIndisponivel()
+        return { status: "erro" }
+      },
+      async apagarConta() {
         avisarIndisponivel()
         return { status: "erro" }
       },

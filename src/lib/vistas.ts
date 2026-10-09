@@ -13,6 +13,8 @@ export const LEDE_PROJETOS =
   "Lotes gravados no banco: modo, cópias, tempo, mão de obra e cores. A tarifa fica na impressora, então o total acompanha a máquina. Abrir marca a impressora do projeto."
 export const LEDE_CONFIG =
   "A K2 Pro já vem preenchida: 150 W, R$ 1,18 por kWh, R$ 7.979 e 3.000 horas. Dá para ter mais de uma máquina; a calculadora usa a marcada. A tarifa fica na impressora, no banco deste computador."
+export const LEDE_USUARIOS =
+  "Contas desta máquina, fora a sua. Incluir cria o e-mail e a senha. A senha nova vale no próximo entrar. Apagar tira a conta, as impressoras e os projetos dela."
 
 export type TelaBanco = "calculadora" | "projetos" | "configuracoes"
 

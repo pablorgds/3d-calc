@@ -34,7 +34,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} antialiased`}
     >
       <body className="flex flex-col">
-        <SiteHeader email={sessao?.email ?? null} />
+        <SiteHeader email={sessao?.email ?? null} admin={sessao?.papel === "admin"} />
         {children}
       </body>
     </html>

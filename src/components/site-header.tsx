@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { BotaoSair } from "@/components/botao-sair"
 
-const navItems = [
+const navBase = [
   { href: "/", label: "Calculadora" },
   { href: "/projetos", label: "Projetos" },
   { href: "/configuracoes", label: "Configurações" },
@@ -12,9 +12,10 @@ const navItems = [
 
 const rotasPublicas = new Set(["/entrar", "/criar"])
 
-export function SiteHeader({ email = null }: { email?: string | null }) {
+export function SiteHeader({ email = null, admin = false }: { email?: string | null; admin?: boolean }) {
   const pathname = usePathname()
   const publico = rotasPublicas.has(pathname)
+  const navItems = admin ? [...navBase, { href: "/usuarios", label: "Usuários" }] : navBase
 
   return (
     <header className="site-header">

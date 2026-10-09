@@ -29,6 +29,7 @@ function envolver<T extends object>(banco: T): T {
         "lerSessao",
         "apagarSessao",
         "redefinirSenha",
+        "apagarConta",
         "listarOutrasContas",
         "contarContas",
       ])
@@ -1585,6 +1586,43 @@ $$`)
     assert.equal((await abrirBanco(url).redefinirSenha(outra.id, "tres@example.com", "nova-senha")).status, "inalterado")
     const depois = await sql<{ email: string; verificador: Buffer }>("SELECT email, verificador FROM conta ORDER BY email")
     assert.deepEqual(depois.rows, antes.rows)
+  })
+
+  test("apagar conta tira impressora projeto e sessao dela", async () => {
+    const outra = await abrirBanco(url).criarConta("outra@example.com", "senha-oito")
+    assert.equal(outra.status, "criada")
+    if (outra.status !== "criada") return
+    ok(await comConta(outra.id, () => abrirBanco(url).gravarProjeto(projeto({ id: "alheio", name: "Deles" }))))
+    const alheia = await abrirBanco(url).entrar("outra@example.com", "senha-oito")
+    assert.equal(alheia.status, "ok")
+    if (alheia.status !== "ok") return
+    assert.equal((await abrirBanco(url).apagarConta(contaIdProva, "outra@example.com")).status, "apagada")
+    const contas = await sql<{ n: number }>("SELECT count(*)::int AS n FROM conta WHERE email = 'outra@example.com'")
+    const impressoras = await sql<{ n: number }>("SELECT count(*)::int AS n FROM impressora WHERE conta_id = $1", [outra.id])
+    const projetos = await sql<{ n: number }>("SELECT count(*)::int AS n FROM projeto WHERE conta_id = $1", [outra.id])
+    const admin = await sql<{ n: number }>("SELECT count(*)::int AS n FROM impressora WHERE conta_id = $1", [contaIdProva])
+    assert.equal(Number(contas.rows[0]?.n), 0)
+    assert.equal(Number(impressoras.rows[0]?.n), 0)
+    assert.equal(Number(projetos.rows[0]?.n), 0)
+    assert.equal(Number(admin.rows[0]?.n), 1)
+    assert.equal(await abrirBanco(url).lerSessao(alheia.token), null)
+  })
+
+  test("nao apaga a conta admin", async () => {
+    assert.equal((await abrirBanco(url).apagarConta(contaIdProva, "pablorgds@gmail.com")).status, "inalterado")
+    const admins = await sql<{ email: string }>("SELECT email FROM conta WHERE papel = 'admin'")
+    assert.deepEqual(admins.rows.map((row) => row.email), ["pablorgds@gmail.com"])
+  })
+
+  test("conta comum nao apaga conta", async () => {
+    const outra = await abrirBanco(url).criarConta("outra@example.com", "senha-oito")
+    const terceira = await abrirBanco(url).criarConta("tres@example.com", "senha-oito")
+    assert.equal(outra.status, "criada")
+    assert.equal(terceira.status, "criada")
+    if (outra.status !== "criada") return
+    assert.equal((await abrirBanco(url).apagarConta(outra.id, "tres@example.com")).status, "inalterado")
+    const n = await sql<{ n: number }>("SELECT count(*)::int AS n FROM conta WHERE email = 'tres@example.com'")
+    assert.equal(Number(n.rows[0]?.n), 1)
   })
 
   test("redefinir senha curta mantem a anterior", async () => {

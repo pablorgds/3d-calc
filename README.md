@@ -21,6 +21,7 @@ node --experimental-strip-types --test src/lib/*.test.ts
 - **Calculadora** (`/`) — peça única ou lote, várias cores no mesmo objeto, mão de obra em percentual. Cópias na mesa só existem no lote. Energia e depreciação vêm da impressora marcada. Dá para gravar o lote com nome.
 - **Projetos** (`/projetos`) — lotes gravados no banco. Abrir, duplicar e apagar. O total usa a tarifa atual da impressora do projeto.
 - **Configurações** (`/configuracoes`) — K2 Pro já preenchida (150 W, R$ 1,18/kWh, R$ 7.979, 3.000 h). Dá para acrescentar máquina e marcar qual está em uso. O R$/kWh fica na impressora.
+- **Usuários** (`/usuarios`) — só a conta admin. Incluir e-mail e senha, gravar senha nova e apagar a conta com as impressoras e os projetos dela.
 
 ## Documentação
 

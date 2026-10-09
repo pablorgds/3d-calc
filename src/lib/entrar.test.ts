@@ -174,6 +174,12 @@ test("get /configuracoes sem cookie 307", async () => {
   assert.equal(resposta.headers.get("location"), "/entrar")
 })
 
+test("get /usuarios sem cookie 307", async () => {
+  const resposta = await pedir("/usuarios")
+  assert.equal(resposta.status, 307)
+  assert.equal(resposta.headers.get("location"), "/entrar")
+})
+
 test("get /entrar 200 titulo Entrar", async () => {
   const resposta = await pedir("/entrar")
   assert.equal(resposta.status, 200)
@@ -355,33 +361,83 @@ test("get / com sessao 200", async () => {
   assert.match(await resposta.text(), /Gravar o lote deixa o projeto no banco\./)
 })
 
-test("configuracoes admin mostra o email", async () => {
+test("usuarios admin mostra o email", async () => {
   await formulario("criar", "outra@example.com", "senha-oito")
   const admin = await formulario("entrar", "pablorgds@gmail.com", "segredo-inicial")
-  const resposta = await pedir("/configuracoes", { headers: { cookie: `sessao=${tokenDe(cookieDe(admin))}` } })
+  const cookie = `sessao=${tokenDe(cookieDe(admin))}`
+  const resposta = await pedir("/usuarios", { headers: { cookie } })
   assert.equal(resposta.status, 200)
   assert.match(await resposta.text(), /outra@example.com/)
+  const config = await pedir("/configuracoes", { headers: { cookie } })
+  assert.equal((await config.text()).includes("outra@example.com"), false)
 })
 
 test("conta comum sem redefinir senha", async () => {
   await formulario("criar", "outra@example.com", "senha-oito")
   const entrada = await formulario("entrar", "outra@example.com", "senha-oito")
-  const html = await (await pedir("/configuracoes", { headers: { cookie: `sessao=${tokenDe(cookieDe(entrada))}` } })).text()
+  const cookie = `sessao=${tokenDe(cookieDe(entrada))}`
+  const html = await (await pedir("/configuracoes", { headers: { cookie } })).text()
   assert.equal(html.includes("Redefinir senha"), false)
+  assert.equal(html.includes("Nova senha"), false)
+  const usuarios = await pedir("/usuarios", { headers: { cookie } })
+  assert.equal(usuarios.status, 307)
+  assert.equal(usuarios.headers.get("location"), "/")
 })
 
 test("emails do admin em ordem", async () => {
   await formulario("criar", "m@example.com", "senha-oito")
   await formulario("criar", "a@example.com", "senha-oito")
   const admin = await formulario("entrar", "pablorgds@gmail.com", "segredo-inicial")
-  const html = await (await pedir("/configuracoes", { headers: { cookie: `sessao=${tokenDe(cookieDe(admin))}` } })).text()
+  const html = await (await pedir("/usuarios", { headers: { cookie: `sessao=${tokenDe(cookieDe(admin))}` } })).text()
   assert.ok(html.indexOf("a@example.com") < html.indexOf("m@example.com"))
 })
 
 test("nenhuma outra conta", async () => {
   const admin = await formulario("entrar", "pablorgds@gmail.com", "segredo-inicial")
-  const html = await (await pedir("/configuracoes", { headers: { cookie: `sessao=${tokenDe(cookieDe(admin))}` } })).text()
+  const html = await (await pedir("/usuarios", { headers: { cookie: `sessao=${tokenDe(cookieDe(admin))}` } })).text()
   assert.match(html, /Nenhuma outra conta\./)
+})
+
+test("incluir nao troca a sessao do admin", async () => {
+  const admin = await formulario("entrar", "pablorgds@gmail.com", "segredo-inicial")
+  const cookie = `sessao=${tokenDe(cookieDe(admin))}`
+  const resposta = await formulario("incluir", "nova@example.com", "senha-oito", cookie)
+  assert.equal(cookieDe(resposta).includes("sessao="), false)
+  assert.match(await corpoDepois(resposta, cookie), /nova@example.com/)
+  const entrada = await formulario("entrar", "nova@example.com", "senha-oito")
+  assert.match(cookieDe(entrada), /^sessao=/)
+  const segue = await pedir("/usuarios", { headers: { cookie } })
+  assert.equal(segue.status, 200)
+})
+
+test("incluir duplicado avisa", async () => {
+  const admin = await formulario("entrar", "pablorgds@gmail.com", "segredo-inicial")
+  const cookie = `sessao=${tokenDe(cookieDe(admin))}`
+  await formulario("incluir", "nova@example.com", "senha-oito", cookie)
+  const resposta = await formulario("incluir", "nova@example.com", "senha-oito", cookie)
+  assert.match(await corpoDepois(resposta, cookie), /Esse e-mail já tem conta\./)
+})
+
+test("apagar some da lista", async () => {
+  const admin = await formulario("entrar", "pablorgds@gmail.com", "segredo-inicial")
+  const cookie = `sessao=${tokenDe(cookieDe(admin))}`
+  await formulario("incluir", "nova@example.com", "senha-oito", cookie)
+  const resposta = await formulario("apagar", "nova@example.com", "", cookie)
+  assert.equal((await corpoDepois(resposta, cookie)).includes("nova@example.com"), false)
+  const entrada = await formulario("entrar", "nova@example.com", "senha-oito")
+  assert.match(await corpoDepois(entrada), /E-mail ou senha não confere\./)
+})
+
+test("conta comum nao apaga pelo post", async () => {
+  await formulario("criar", "outra@example.com", "senha-oito")
+  await formulario("criar", "tres@example.com", "senha-oito")
+  const entrada = await formulario("entrar", "outra@example.com", "senha-oito")
+  const cookie = `sessao=${tokenDe(cookieDe(entrada))}`
+  const resposta = await formulario("apagar", "tres@example.com", "", cookie)
+  assert.equal(resposta.status, 303)
+  assert.equal(resposta.headers.get("location"), "/")
+  const segue = await formulario("entrar", "tres@example.com", "senha-oito")
+  assert.match(cookieDe(segue), /^sessao=/)
 })
 
 test("senha antiga nao entra", async () => {
