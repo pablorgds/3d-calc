@@ -15,7 +15,7 @@ export function useProjects(): Project[] | null {
 
 export function writeProject(project: Project & { expectedUpdatedAt?: number }) {
   void gravarProjetoNoBanco({ ...project, updatedAt: Date.now() }).then((resultado) => {
-    if (resultado.status !== "rejeitado") aplicarResultado(resultado)
+    aplicarResultado(resultado)
   })
 }
 
@@ -35,12 +35,12 @@ export function removeMesa(id: string, mesaId: string, expectedUpdatedAt?: numbe
 
 export function deleteProject(id: string) {
   void apagarProjetoNoBanco(id).then((resultado) => {
-    if (resultado.status !== "rejeitado") aplicarResultado(resultado)
+    aplicarResultado(resultado)
   })
 }
 
 export function duplicateProject(id: string, newId: string, now = Date.now()) {
   void duplicarProjetoNoBanco(id, newId, now).then((resultado) => {
-    if (resultado.status !== "rejeitado") aplicarResultado(resultado)
+    aplicarResultado(resultado)
   })
 }

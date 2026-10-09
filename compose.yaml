@@ -17,7 +17,7 @@ services:
     image: node:24
     working_dir: /app
     entrypoint: ["sh", "/app/docker/dev-entrypoint.sh"]
-    command: ["npm", "run", "dev"]
+    command: ["npm", "run", "serve"]
     environment:
       DATABASE_URL: postgresql://custo:custo@postgres:5432/custo_chapa
       SENHA_ADMIN: ${SENHA_ADMIN:-}

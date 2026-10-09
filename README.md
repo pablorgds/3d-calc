@@ -8,7 +8,7 @@ App de precificação de impressão 3D. A calculadora estima o custo de um objet
 docker compose up
 ```
 
-A calculadora abre em [http://127.0.0.1:4317](http://127.0.0.1:4317).
+A calculadora abre em [http://127.0.0.1:4317](http://127.0.0.1:4317). Fora de casa, com este PC ligado, o nome é `https://calculadora.<tailnet>.ts.net`.
 
 Os testes do motor, dos rascunhos e do que fica gravado:
 

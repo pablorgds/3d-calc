@@ -70,28 +70,36 @@ Status: done
 ### S3 - O processo da 4317 é o app construído · 7 files · 14 KB · ~4k
 
 **C15** - O comando do serviço `app` no compose é `npm run serve` (AC 15, door 2)
-Proof: `node --experimental-strip-types --test src/lib/compose.test.ts --test-name-pattern "compose app node 24"`
+
+Status: done
 
 **C16** - O script `serve` é `next build && next start --hostname 0.0.0.0 --port 4317` (AC 16, door 2)
-Proof: `node --experimental-strip-types --test src/lib/compose.test.ts --test-name-pattern "script serve constroi e escuta"`
+
+Status: done
 
 **C17** - Com `docker compose up` no ar, GET `http://127.0.0.1:4317/` responde 200 (AC 17)
-Proof: `node --experimental-strip-types --test src/lib/compose.test.ts --test-name-pattern "compose responde 200"`
+
+Status: done
 
 **C18** - O serviço postgres do compose não publica porta no host (AC 18)
-Proof: `node --experimental-strip-types --test src/lib/compose.test.ts --test-name-pattern "compose postgres sem porta"`
+
+Status: done
 
 **C19** - A seção `Como rodar` do README inclui `docker compose up`, `http://127.0.0.1:4317` e `https://calculadora.<tailnet>.ts.net` (AC 19)
-Proof: `node --experimental-strip-types --test src/lib/docs-banco.test.ts --test-name-pattern "readme url publica"`
+
+Status: done
 
 **C20** - `docs/arquitetura.md` diz que o app construído escuta em `0.0.0.0:4317` (AC 20)
-Proof: `node --experimental-strip-types --test src/lib/docs-banco.test.ts --test-name-pattern "arquitetura app construido"`
+
+Status: done
 
 **C21** - `docs/arquitetura.md` diz que GET `/criar` responde 307 para `/entrar` (AC 21)
-Proof: `node --experimental-strip-types --test src/lib/docs-banco.test.ts --test-name-pattern "arquitetura criar 307"`
+
+Status: done
 
 **C22** - `docs/arquitetura.md` não diz que o servidor de desenvolvimento escuta em `0.0.0.0:4317` (AC 22)
-Proof: `node --experimental-strip-types --test src/lib/docs-banco.test.ts --test-name-pattern "arquitetura sem dev na 4317"`
+
+Status: done
 
 **C23** - GET `/entrar` com `sessao` válida responde 307 com Location `/` (Surface `GET /entrar` status 307)
 
@@ -126,3 +134,7 @@ Status: done
 ## Handoff
 
 S1 = 10k, cadastro. S2 entra no cookie e soma 16k. S3 entra no compose e na documentação e soma 20k. Abaixo do orçamento de 150k — one builder, no ask.
+
+Settled mid-build: the login proof named entrar mostra email senha e criar conta was replaced by entrar sem criar conta and entrar 200 com email senha e entrar. .specs/features/login/checks.md stays as written.
+
+Abandoned: none.

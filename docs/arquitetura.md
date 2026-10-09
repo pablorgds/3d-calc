@@ -1,19 +1,19 @@
 # Arquitetura
 
-Next.js 16 (App Router), React 19, Tailwind CSS 4 e componentes no estilo shadcn (`base-nova`, Base UI). Alias `@/*` aponta para `src/*`. O servidor de desenvolvimento escuta em `0.0.0.0:4317`.
+Next.js 16 (App Router), React 19, Tailwind CSS 4 e componentes no estilo shadcn (`base-nova`, Base UI). Alias `@/*` aponta para `src/*`. O app construído escuta em `0.0.0.0:4317`.
 
 ## Rotas
 
 | Rota | Página | Cliente |
 | --- | --- | --- |
-| `/entrar` | `src/app/entrar/page.tsx` | e-mail, senha e link para criar conta |
-| `/criar` | `src/app/criar/page.tsx` | e-mail, senha e confirmação de senha |
+| `/entrar` | `src/app/entrar/page.tsx` | e-mail e senha |
+| `/criar` | `src/app/criar/page.tsx` | redireciona para `/entrar` |
 | `/` | `src/app/page.tsx` | `Calculadora` |
 | `/projetos` | `src/app/projetos/page.tsx` | `ListaProjetos` |
 | `/configuracoes` | `src/app/configuracoes/page.tsx` | `ConfiguracoesForm` |
 | `/usuarios` | `src/app/usuarios/page.tsx` | `ListaUsuarios` |
 
-`/`, `/projetos`, `/configuracoes` e `/usuarios` respondem 307 para `/entrar` sem `sessao` válida. `/usuarios` com papel `comum` responde 307 para `/`.
+`/`, `/projetos`, `/configuracoes` e `/usuarios` respondem 307 para `/entrar` sem `sessao` válida. `/usuarios` com papel `comum` responde 307 para `/`. GET `/criar` responde 307 para `/entrar`.
 
 A calculadora lê `?projeto=` no server component e passa o id adiante. A `key` do componente muda com o id, então abrir outro projeto remonta o formulário. Projetos, Configurações e Usuários só renderizam um `PageIntro` e o cliente.
 

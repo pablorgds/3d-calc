@@ -6,6 +6,7 @@
     "dev": "next dev --hostname 0.0.0.0 --port 4317",
     "build": "next build",
     "start": "next start",
+    "serve": "next build && next start --hostname 0.0.0.0 --port 4317",
     "lint": "eslint"
   },
   "dependencies": {
@@ -23,6 +24,7 @@
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

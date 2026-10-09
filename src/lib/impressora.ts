@@ -47,24 +47,24 @@ export function usePrinterStore(): PrinterStore | null {
 
 export function setActivePrinter(id: string) {
   void marcarImpressoraNoBanco(id).then((resultado) => {
-    if (resultado.status !== "rejeitado") aplicarResultado(resultado)
+    aplicarResultado(resultado)
   })
 }
 
 export function updatePrinterById(id: string, patch: Partial<Omit<Printer, "id">>) {
   void atualizarImpressoraNoBanco(id, patch).then((resultado) => {
-    if (resultado.status !== "rejeitado") aplicarResultado(resultado)
+    aplicarResultado(resultado)
   })
 }
 
 export function addPrinter(id: string) {
   void adicionarImpressoraNoBanco(id).then((resultado) => {
-    if (resultado.status !== "rejeitado") aplicarResultado(resultado)
+    aplicarResultado(resultado)
   })
 }
 
 export function removePrinter(id: string) {
   void removerImpressoraNoBanco(id).then((resultado) => {
-    if (resultado.status !== "rejeitado") aplicarResultado(resultado)
+    aplicarResultado(resultado)
   })
 }

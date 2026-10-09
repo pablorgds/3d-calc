@@ -19,6 +19,26 @@ test("readme compose up", () => {
   assert.match(comoRodar, /http:\/\/127\.0\.0\.1:4317/)
 })
 
+test("readme url publica", () => {
+  const readme = fonte("README.md")
+  const comoRodar = readme.slice(readme.indexOf("## Como rodar"), readme.indexOf("## O que existe hoje"))
+  assert.match(comoRodar, /docker compose up/)
+  assert.match(comoRodar, /http:\/\/127\.0\.0\.1:4317/)
+  assert.match(comoRodar, /https:\/\/calculadora\.<tailnet>\.ts\.net/)
+})
+
+test("arquitetura app construido", () => {
+  assert.match(fonte("docs/arquitetura.md"), /O app construído escuta em `0\.0\.0\.0:4317`/)
+})
+
+test("arquitetura criar 307", () => {
+  assert.match(fonte("docs/arquitetura.md"), /GET `\/criar` responde 307 para `\/entrar`/)
+})
+
+test("arquitetura sem dev na 4317", () => {
+  assert.equal(fonte("docs/arquitetura.md").includes("servidor de desenvolvimento escuta em `0.0.0.0:4317`"), false)
+})
+
 test("dados no volume", () => {
   assert.match(fonte("docs/dados.md"), /impressoras e projetos ficam no Postgres do volume `custo-chapa-pg`/i)
 })
@@ -35,7 +55,7 @@ test("dados cada conta", () => {
 test("arquitetura entrar 307", () => {
   const texto = fonte("docs/arquitetura.md")
   assert.match(texto, /\/entrar/)
-  assert.match(texto, /\/`, `\/projetos` e `\/configuracoes` respondem 307 para `\/entrar` sem `sessao` válida/)
+  assert.match(texto, /\/`, `\/projetos`, `\/configuracoes` e `\/usuarios` respondem 307 para `\/entrar` sem `sessao` válida/)
 })
 
 test("agents pede a conta", () => {

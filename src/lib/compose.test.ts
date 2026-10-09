@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { execFile } from "node:child_process"
+import fs from "node:fs"
 import path from "node:path"
 import test from "node:test"
 import { promisify } from "node:util"
@@ -134,6 +135,13 @@ test.describe("compose", { concurrency: 1 }, () => {
   test("compose app node 24", async () => {
     const config = await composeConfig()
     assert.equal(config.services.app.image, "node:24")
-    assert.equal(comando(config.services.app), "npm run dev")
+    assert.equal(comando(config.services.app), "npm run serve")
+  })
+
+  test("script serve constroi e escuta", () => {
+    const pacote = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")) as {
+      scripts: Record<string, string>
+    }
+    assert.equal(pacote.scripts.serve, "next build && next start --hostname 0.0.0.0 --port 4317")
   })
 })

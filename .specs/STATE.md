@@ -16,9 +16,9 @@
 ## Handoff
 
 **Feature**: url-publica
-**Where**: C1–C14 and C23 done. C15–C22 still open: built app on 4317, docs, typecheck.
+**Where**: C1–C23 done. Proofs in `entrar.test.ts`, `compose.test.ts`, and `docs-banco.test.ts` passed.
 **In progress**: none
-**Next step**: commit the compose serve script, the docs, and the typecheck fixes that let `next build` listen.
+**Next step**: independent verifier over `241b8d2..HEAD`. Go-live is outside the repo: name the Tailscale node `calculadora`, set `ORIGEM_PUBLICA`, run `tailscale funnel 4317` on this PC.
 **Blockers**: go-live still needs the Tailscale node `calculadora` and `ORIGEM_PUBLICA`.
-**Uncommitted**: compose, package.json, tsconfig, impressora, projetos, docs proofs
+**Uncommitted**: none
 **Branch**: main
