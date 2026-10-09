@@ -8,7 +8,7 @@ function sair() {
 function entrar(titulo: string, aviso: string | null, campos: boolean) {
   const avisoHtml = aviso ? `<p>${aviso}</p>` : ""
   const form = campos
-    ? `<form method="post" action="/sessao"><label for="email">E-mail</label><input id="email" name="email" /><label for="senha">Senha</label><input id="senha" name="senha" type="password" /><button type="submit" name="acao" value="entrar">Entrar</button><button type="submit" name="acao" value="criar">Criar conta</button></form>`
+    ? `<form method="post" action="/sessao"><label for="email">E-mail</label><input id="email" name="email" /><label for="senha">Senha</label><input id="senha" name="senha" type="password" /><button type="submit" name="acao" value="entrar">Entrar</button></form>`
     : ""
   return `<main><h1>${titulo}</h1>${avisoHtml}${form}</main>`
 }

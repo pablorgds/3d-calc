@@ -1,7 +1,6 @@
 "use client"
 
-import Link from "next/link"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
@@ -47,11 +46,6 @@ export function FormularioEntrar({
                 </button>
               </form>
             </CardContent>
-            <CardFooter>
-              <Link href="/criar" className="btn-outline inline-flex h-11 items-center px-3 text-sm font-medium">
-                Criar conta
-              </Link>
-            </CardFooter>
           </Card>
         ) : null}
       </div>

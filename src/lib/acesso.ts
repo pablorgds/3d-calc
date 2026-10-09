@@ -24,6 +24,7 @@ export function tokenDoCookie(cookie: string | null) {
 }
 
 export async function decidirGet(path: string, token: string | null, projetoId: string | null, aviso: string | null): Promise<DecisaoGet> {
+  if (path === "/criar") return { kind: "redirect", status: 307, location: "/entrar" }
   const banco = abrirBancoDoAmbiente()
   const primeira = await banco.garantirPrimeiraConta(process.env.SENHA_ADMIN)
   if (primeira.status === "erro") {
@@ -31,12 +32,11 @@ export async function decidirGet(path: string, token: string | null, projetoId: 
     return { kind: "redirect", status: 307, location: "/entrar" }
   }
   const sessao = token ? await banco.lerSessao(token) : null
-  if (path === "/entrar" || path === "/criar") {
+  if (path === "/entrar") {
     if (sessao) return { kind: "redirect", status: 307, location: "/" }
     const contas = await banco.contarContas()
     if (contas === null) return { kind: "banco", status: 200 }
     if (contas === 0) return { kind: "falta-senha", status: 200 }
-    if (path === "/criar") return { kind: "criar", status: 200, aviso }
     return { kind: "entrar", status: 200, aviso }
   }
   if (!ROTAS.has(path) || !sessao) return { kind: "redirect", status: 307, location: "/entrar" }
@@ -70,8 +70,7 @@ export async function decidirPost(
   acao: string,
   email: string,
   senha: string,
-  token: string | null,
-  confirmacao: string | null = null
+  token: string | null
 ): Promise<DecisaoPost> {
   const banco = abrirBancoDoAmbiente()
   await banco.garantirPrimeiraConta(process.env.SENHA_ADMIN)
@@ -79,25 +78,7 @@ export async function decidirPost(
     if (token) await banco.apagarSessao(token)
     return { status: 303, location: "/entrar", apagarCookie: true }
   }
-  if (acao === "criar") {
-    if (confirmacao !== null && confirmacao !== senha) {
-      return { status: 303, location: comAviso("/criar", "As senhas não conferem.") }
-    }
-    const criada = await banco.criarConta(email, senha)
-    if (criada.status === "criada") {
-      const entrada = await banco.entrar(email, senha)
-      if (entrada.status === "ok") return { status: 303, location: "/", token: entrada.token }
-    }
-    const aviso =
-      criada.status === "duplicado"
-        ? "Esse e-mail já tem conta."
-        : criada.status === "senha-curta"
-          ? "A senha precisa de 8 caracteres."
-          : criada.status === "email-invalido"
-            ? "E-mail inválido."
-            : "Não deu para ler o banco."
-    return { status: 303, location: comAviso("/criar", aviso) }
-  }
+  if (acao === "criar") return { status: 303, location: "/entrar" }
   if (acao === "incluir" || acao === "redefinir" || acao === "apagar") {
     const sessao = token ? await banco.lerSessao(token) : null
     if (!sessao) return { status: 303, location: "/entrar" }
