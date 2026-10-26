@@ -19,7 +19,7 @@
 **Feature**: orcamento
 **Where**: C1–C28 implemented. Proofs in `projetos-store.test.ts`, `vistas.test.ts`, and `banco.test.ts` passed.
 **In progress**: none
-**Next step**: commit, then the Verifier
+**Next step**: the Verifier, over 07d9f35..HEAD
 **Blockers**: none
-**Uncommitted**: the orçamento files. `compose.yaml` has an unrelated `ORIGEM_PUBLICA` line and stays out.
+**Uncommitted**: `compose.yaml` has an unrelated `ORIGEM_PUBLICA` line and stays out.
 **Branch**: main

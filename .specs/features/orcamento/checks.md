@@ -137,6 +137,6 @@ Proof: `node --experimental-strip-types --test src/lib/vistas.test.ts --test-nam
 - Total 52367, abaixo do orçamento de 150k — one builder
 - Mechanism: one builder
 - Built: C1–C28
-- **Boundary:** C1–C28 closed in this commit
+- **Boundary:** C1–C28 closed at 6a6cd783c3ab05e846dc24f3932e017ce6e8bd1a
 - **Settled mid-build:** none
 - **Abandoned:** none
