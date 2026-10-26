@@ -16,6 +16,8 @@ A decidir quando virar plano: se o preço no estoque mudar depois, o lote já gr
 
 ## Cliente do projeto
 
+Decidido com o orçamento em [.design/orcamento.md](.design/orcamento.md), em 2026-10-26. Nome e telefone ficam no projeto.
+
 Guardar, no projeto, quem pediu a peça: nome e telefone. Na calculadora e na lista de projetos, esse cliente aparece junto do lote.
 
 A conta não muda. Peça, lote, energia, depreciação, material e mão de obra continuam como estão. Nome e telefone ficam em texto, do jeito que foram digitados. Os dois podem ficar vazios: um lote sem cliente continua válido.
@@ -24,7 +26,7 @@ Hoje o projeto guarda o nome do lote, a impressora, o modo, as cópias, o tempo,
 
 Fora deste item, até alguém pedir: endereço, e-mail, documento, mais de um telefone, e um cadastro de clientes solto da lista de projetos.
 
-A decidir quando virar plano: o cliente é um cadastro próprio que vários projetos apontam, ou nome e telefone ficam gravados no próprio projeto — e, nesse segundo caso, duplicar o lote copia os dois campos.
+Decidido: nome e telefone ficam no projeto, e duplicar o lote copia os dois.
 
 ## Login
 
@@ -38,6 +40,8 @@ A decidir quando virar plano: o que a sessão trava — o app inteiro, ou projet
 
 ## Orçamento em PDF ou texto
 
+Decidido em [.design/orcamento.md](.design/orcamento.md), em 2026-10-26. O orçamento é texto copiado da calculadora.
+
 O total da peça e do lote só aparece na tela. O projeto não guarda esse total: a lista recalcula com a tarifa atual da impressora. Quem passa o preço copia os números à mão.
 
 Quando isto chegar, a pessoa tira do projeto um orçamento em PDF ou em texto, com o que a tela já mostra daquele lote.
@@ -46,7 +50,7 @@ A conta não muda. O arquivo é uma leitura do total da hora em que foi gerado.
 
 Fora deste item, até alguém pedir: envio por e-mail ou mensagem, e modelo com logo.
 
-A decidir quando virar plano: o arquivo leva a tarifa daquele instante, ou nasce de novo cada vez que a tarifa da impressora mudar.
+Decidido: o texto leva a tarifa da hora da cópia e não grava o total. PDF fica de fora.
 
 ## Refugo
 

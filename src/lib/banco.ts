@@ -305,6 +305,8 @@ async function garantirSchema(client: PoolClient) {
          labor text NOT NULL,
          color_mode text NOT NULL DEFAULT 'unica',
          grams text NOT NULL DEFAULT '',
+         client_name text NOT NULL DEFAULT '',
+         client_phone text NOT NULL DEFAULT '',
          updated_at double precision NOT NULL
        )`
     )
@@ -321,6 +323,12 @@ async function garantirSchema(client: PoolClient) {
   await client.query(COR)
   await migrarCores(client)
   await firmarChaves(client)
+  await migrarCliente(client)
+}
+
+async function migrarCliente(client: PoolClient) {
+  await client.query("ALTER TABLE projeto ADD COLUMN IF NOT EXISTS client_name text NOT NULL DEFAULT ''")
+  await client.query("ALTER TABLE projeto ADD COLUMN IF NOT EXISTS client_phone text NOT NULL DEFAULT ''")
 }
 
 async function garantirSemente(client: PoolClient, contaId: string) {
@@ -399,9 +407,11 @@ async function lerProjetos(client: PoolClient, contaId: string): Promise<Project
     labor: string
     color_mode: string
     grams: string
+    client_name: string
+    client_phone: string
     updated_at: string | number
   }>(
-    "SELECT id, name, printer_id, mode, copies, hours, minutes, labor, color_mode, grams, updated_at FROM projeto WHERE conta_id = $1",
+    "SELECT id, name, printer_id, mode, copies, hours, minutes, labor, color_mode, grams, client_name, client_phone, updated_at FROM projeto WHERE conta_id = $1",
     [contaId]
   )
   const colors = await client.query<{
@@ -468,6 +478,8 @@ async function lerProjetos(client: PoolClient, contaId: string): Promise<Project
       grams: row.grams,
       colors: byProject.get(row.id) ?? [],
       mesas: mesasDoProjeto.get(row.id) ?? [],
+      clientName: row.client_name,
+      clientPhone: row.client_phone,
       updatedAt: Number(row.updated_at),
     }))
   )
@@ -534,8 +546,8 @@ async function inserirProjeto(client: PoolClient, contaId: string, project: Proj
   await exigirUpdatedAt(client, contaId, project.id, expected)
   const gravado = prepararGravacao(project)
   await client.query(
-    `INSERT INTO projeto (id, conta_id, name, printer_id, mode, copies, hours, minutes, labor, color_mode, grams, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    `INSERT INTO projeto (id, conta_id, name, printer_id, mode, copies, hours, minutes, labor, color_mode, grams, client_name, client_phone, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
      ON CONFLICT (id) DO UPDATE SET
        name = EXCLUDED.name,
        printer_id = EXCLUDED.printer_id,
@@ -546,6 +558,8 @@ async function inserirProjeto(client: PoolClient, contaId: string, project: Proj
        labor = EXCLUDED.labor,
        color_mode = EXCLUDED.color_mode,
        grams = EXCLUDED.grams,
+       client_name = EXCLUDED.client_name,
+       client_phone = EXCLUDED.client_phone,
        updated_at = EXCLUDED.updated_at
      WHERE projeto.conta_id = EXCLUDED.conta_id`,
     [
@@ -560,6 +574,8 @@ async function inserirProjeto(client: PoolClient, contaId: string, project: Proj
       gravado.labor,
       gravado.colorMode === "multicolor" ? "multicolor" : "unica",
       gravado.grams,
+      gravado.clientName,
+      gravado.clientPhone,
       gravado.updatedAt,
     ]
   )
@@ -1145,14 +1161,14 @@ function criar(pool: Pool, databaseUrl: string): Banco {
 export function abrirBanco(databaseUrl: string): Banco {
   let pool = pools.get(databaseUrl)
   if (!pool) {
-    pool = new Pool({ connectionString: databaseUrl, connectionTimeoutMillis: 2000 })
+    pool = new Pool({ connectionString: databaseUrl, connectionTimeoutMillis: 10000 })
     pools.set(databaseUrl, pool)
   }
   return criar(pool, databaseUrl)
 }
 
 export function abrirBancoDoAmbiente(): Banco {
-  const databaseUrl = process.env.DATABASE_URL
+  const databaseUrl = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL
   if (!databaseUrl) {
     return {
       async ler() {

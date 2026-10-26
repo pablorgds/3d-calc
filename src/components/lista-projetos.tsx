@@ -10,7 +10,7 @@ import { useLeitura } from "@/lib/impressora"
 import type { PrinterStore } from "@/lib/impressora-store"
 import type { Project } from "@/lib/projetos-store"
 import { deleteProject, duplicateProject } from "@/lib/projetos"
-import { descricaoProjeto, vistaCarregamento } from "@/lib/vistas"
+import { descricaoProjeto, linhaCliente, vistaCarregamento } from "@/lib/vistas"
 import { atrasoLista } from "@/lib/movimento"
 import { cn } from "cn"
 
@@ -78,6 +78,7 @@ export function ListaProjetos({
         })
         const confirming = pendingDelete === project.id
         const parts = descricaoProjeto(project)
+        const cliente = linhaCliente(project)
         return (
           <Card
             key={project.id}
@@ -93,6 +94,11 @@ export function ListaProjetos({
             </CardHeader>
             <CardContent className="grid gap-3">
               <p className="text-sm text-muted-foreground">{parts.linha}</p>
+              {cliente ? (
+                <p className="text-sm" data-testid={`cliente-projeto-${project.id}`}>
+                  {cliente}
+                </p>
+              ) : null}
               {printer ? (
                 <p className="text-lg font-semibold" data-testid={`total-projeto-${project.id}`}>
                   <span className="figura">{total === null ? "Total incompleto" : formatBRL(total)}</span>

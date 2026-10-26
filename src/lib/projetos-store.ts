@@ -4,6 +4,8 @@ export type Project = JobDraft & {
   id: string
   name: string
   printerId: string
+  clientName: string
+  clientPhone: string
   updatedAt: number
 }
 
@@ -183,6 +185,8 @@ export function parseProject(value: unknown): Project | null {
     grams: gramsGravados !== "" ? gramsGravados : colorMode === "unica" ? (colors[0]?.grams ?? "") : "",
     colors,
     mesas,
+    clientName: asString(record.clientName),
+    clientPhone: asString(record.clientPhone),
     updatedAt: typeof record.updatedAt === "number" && Number.isFinite(record.updatedAt) ? record.updatedAt : 0,
   }
 }

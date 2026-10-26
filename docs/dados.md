@@ -58,7 +58,9 @@ Versão atual do JSON: `1`.
       "colors": [
         { "id": "…", "name": "PLA preto", "hex": "#111111", "price": "90", "grams": "40" }
       ],
-      "updatedAt": 10
+      "updatedAt": 10,
+      "clientName": "",
+      "clientPhone": ""
     }
   ]
 }
@@ -66,7 +68,7 @@ Versão atual do JSON: `1`.
 
 `mode` é `"peca"` ou `"lote"`. `colorMode` é `"unica"` ou `"multicolor"`. Em cor única, `grams` é o peso da peça e a cor não leva peso próprio. Em várias cores, o peso fica em cada cor. O projeto guarda `printerId`, não a tarifa. Abrir `/?projeto=<id>` marca a impressora do projeto. Se essa máquina foi removida, o cálculo usa a marcada agora e a tela avisa. Projeto ausente no banco também avisa; salvar cria um id novo.
 
-Um projeto é uma impressão ou uma lista de mesas. A tabela `mesa` guarda cada chapa: `projeto_id`, `id`, `hours`, `minutes`, `name`, `hex`, `price`, `grams` e `posicao`. `projeto` não ganha coluna. Com mesas, `hours`, `minutes` e `grams` do projeto ficam `""`, `mode` fica `peca`, `colorMode` fica `unica` e não há linha em `cor`. Sem mesas, não há linha em `mesa`. A gravação carrega o `updatedAt` que a tela leu; se a linha já mudou, nada é commitado. Um projeto já gravado continua uma impressão até o dono adicionar uma mesa. O total continua fora do projeto.
+Um projeto é uma impressão ou uma lista de mesas. A tabela `mesa` guarda cada chapa: `projeto_id`, `id`, `hours`, `minutes`, `name`, `hex`, `price`, `grams` e `posicao`. A mesa não vira coluna de `projeto`. Com mesas, `hours`, `minutes` e `grams` do projeto ficam `""`, `mode` fica `peca`, `colorMode` fica `unica` e não há linha em `cor`. Sem mesas, não há linha em `mesa`. A gravação carrega o `updatedAt` que a tela leu; se a linha já mudou, nada é commitado. Um projeto já gravado continua uma impressão até o dono adicionar uma mesa. O total continua fora do projeto.
 
 ```json
 {
@@ -84,8 +86,10 @@ Um projeto é uma impressão ou uma lista de mesas. A tabela `mesa` guarda cada 
   "mesas": [
     { "id": "…", "hours": "1", "minutes": "0", "name": "PLA preto", "hex": "#111111", "price": "100", "grams": "10" }
   ],
+  "clientName": "",
+  "clientPhone": "",
   "updatedAt": 10
 }
 ```
 
-A lista ordena por `updatedAt` decrescente e, no empate, pelo nome em pt-BR. Ids repetidos na leitura ficam só com a primeira ocorrência. JSON inválido ou item sem `id` e `mode` some da lista. Duplicar copia o lote, inclusive as cores, com o nome acrescido de “ (cópia)”.
+A lista ordena por `updatedAt` decrescente e, no empate, pelo nome em pt-BR. Ids repetidos na leitura ficam só com a primeira ocorrência. JSON inválido ou item sem `id` e `mode` some da lista. Duplicar copia o lote, inclusive as cores e o cliente, com o nome acrescido de “ (cópia)”. O cliente é `clientName` e `clientPhone`, texto como foi digitado. Os dois podem ser `""`. Um payload sem esses campos lê os dois como `""`. O total continua fora do projeto.

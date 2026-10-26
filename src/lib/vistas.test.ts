@@ -3,7 +3,7 @@ import assert from "node:assert/strict"
 import fs from "node:fs"
 import path from "node:path"
 import test from "node:test"
-import { calculate, draftToCalcInput, errosAoGravar, type MesaDraft } from "./custo.ts"
+import { calculate, draftToCalcInput, errosAoGravar, formatBRL, formatDuration, formatGrams, type MesaDraft } from "./custo.ts"
 import type { Project } from "./projetos-store.ts"
 
 const { ganharMesa, perderMesa } = await import("./projetos-store.ts")
@@ -29,6 +29,15 @@ const {
   frasesCalculadora,
   textoDeTotal,
   vistaCarregamento,
+  AVISO_IMPRESSORA_REMOVIDA,
+  ROTULO_CLIENTE,
+  ROTULO_COPIAR,
+  ROTULO_TELEFONE,
+  linhaCliente,
+  linhaImpressora,
+  podeCopiarOrcamento,
+  textoAposCopia,
+  textoOrcamento,
 } = await import("./vistas.ts")
 
 const root = path.resolve(import.meta.dirname, "../..")
@@ -138,6 +147,8 @@ function projetoVista(overrides: Partial<Project> = {}): Project {
     grams: "",
     colors: [],
     mesas: [],
+    clientName: "",
+    clientPhone: "",
     updatedAt: 10,
     ...overrides,
   }
@@ -377,4 +388,203 @@ test("projetos lendo o banco", () => {
   assert.equal(vista.descricao, DESCRICAO_PROJETOS_LENDO)
   assert.equal(vista.descricao, "Os projetos desta conta ficam no banco deste computador.")
   assert.match(fonte("src/components/lista-projetos.tsx"), /vista\.descricao/)
+})
+
+const prova = { name: "Prova", watts: "100", energyPrice: "1", printerPrice: "1000", lifeHours: "1000" }
+
+function loteFechado(overrides: Partial<Project> = {}) {
+  return projetoVista({
+    name: "Suporte",
+    mode: "lote",
+    copies: "2",
+    hours: "1",
+    minutes: "0",
+    labor: "20",
+    colorMode: "multicolor",
+    grams: "",
+    colors: [
+      { id: "a", name: "PLA preto", hex: "#111111", price: "100", grams: "10" },
+      { id: "b", name: "PLA branco", hex: "#ffffff", price: "50", grams: "20" },
+    ],
+    clientName: "Ana",
+    clientPhone: "11999990000",
+    ...overrides,
+  })
+}
+
+function textoDo(project: Project, printer = prova, impressoraRemovida = false) {
+  const result = calculate(draftToCalcInput(project, printer))
+  return {
+    result,
+    texto: textoOrcamento({
+      lote: project.name,
+      clientName: project.clientName,
+      clientPhone: project.clientPhone,
+      printer,
+      impressoraRemovida,
+      mode: project.mode,
+      result,
+    }),
+  }
+}
+
+test("lista mostra cliente", () => {
+  const linha = linhaCliente(projetoVista({ clientName: "Ana", clientPhone: "11999990000" }))
+  assert.equal(linha?.includes("Ana"), true)
+  assert.equal(linha?.includes("11999990000"), true)
+  assert.match(fonte("src/components/lista-projetos.tsx"), /linhaCliente/)
+})
+
+test("lista sem cliente no recorte", () => {
+  const vazio = projetoVista({ clientName: "", clientPhone: "" })
+  const espaco = projetoVista({ clientName: "   ", clientPhone: "  " })
+  assert.equal(linhaCliente(vazio), null)
+  assert.equal(linhaCliente(espaco), null)
+  assert.equal(descricaoProjeto(espaco).linha, descricaoProjeto(vazio).linha)
+})
+
+test("campos cliente e telefone", () => {
+  assert.equal(ROTULO_CLIENTE, "Cliente")
+  assert.equal(ROTULO_TELEFONE, "Telefone")
+  const calculadora = fonte("src/components/calculadora.tsx")
+  assert.match(calculadora, /ROTULO_CLIENTE/)
+  assert.match(calculadora, /ROTULO_TELEFONE/)
+  assert.equal(calculadora.includes("clientName.trim()"), false)
+})
+
+test("botao copiar orcamento quando o lote fecha", () => {
+  const { result } = textoDo(loteFechado())
+  assert.equal(result.lot.total !== null, true)
+  assert.equal(podeCopiarOrcamento(result.lot.total), true)
+  const calculadora = fonte("src/components/calculadora.tsx")
+  assert.match(calculadora, /podeCopiarOrcamento/)
+  assert.match(calculadora, /ROTULO_COPIAR/)
+  assert.equal(ROTULO_COPIAR, "Copiar orçamento")
+})
+
+test("texto do orcamento do lote fechado", () => {
+  const project = loteFechado()
+  const { result, texto } = textoDo(project)
+  const marcas = [
+    "Suporte",
+    "Cliente: Ana",
+    "Telefone: 11999990000",
+    linhaImpressora(prova),
+    "Por peça",
+    "Lote",
+    "Material",
+    "Energia",
+    "Depreciação",
+    "Mão de obra",
+    "Peso",
+  ]
+  let anterior = -1
+  for (const marca of marcas) {
+    const em = texto.indexOf(marca)
+    assert.ok(em > anterior, marca)
+    anterior = em
+  }
+  assert.equal(linhaImpressora(prova), "Prova: 100 W, 1 R$/kWh, impressora 1000, 1000 h.")
+  for (const lado of [result.piece, result.lot]) {
+    assert.equal(texto.includes(formatBRL(lado.material ?? 0)), true)
+    assert.equal(texto.includes(formatBRL(lado.energy ?? 0)), true)
+    assert.equal(texto.includes(formatBRL(lado.depreciation ?? 0)), true)
+    assert.equal(texto.includes(formatBRL(lado.labor ?? 0)), true)
+    assert.equal(texto.includes(formatBRL(lado.total ?? 0)), true)
+    assert.equal(texto.includes(formatDuration(lado.minutes ?? 0)), true)
+    assert.equal(texto.includes(formatGrams(lado.grams ?? 0)), true)
+  }
+})
+
+test("texto sem linhas de cliente", () => {
+  const { result, texto } = textoDo(loteFechado({ clientName: "   ", clientPhone: "  " }))
+  assert.equal(texto.includes("Cliente:"), false)
+  assert.equal(texto.includes("Telefone:"), false)
+  assert.equal(texto.includes(formatBRL(result.lot.total ?? 0)), true)
+})
+
+test("texto sem por peca com copias 0", () => {
+  const project = projetoVista({
+    mode: "lote",
+    copies: "0",
+    hours: "1",
+    minutes: "0",
+    labor: "20",
+    colorMode: "unica",
+    grams: "10",
+    colors: [{ id: "a", name: "PLA", hex: "#111111", price: "100", grams: "10" }],
+  })
+  const { result, texto } = textoDo(project)
+  assert.equal(result.piece.total, null)
+  assert.equal(result.lot.total !== null, true)
+  assert.equal(texto.includes("Custo por peça bloqueado. No modo lote, cópias precisa ser maior que zero."), true)
+  assert.equal(texto.includes(formatBRL(result.lot.total ?? 0)), true)
+  assert.equal(texto.includes("Por peça"), false)
+})
+
+test("sem botao quando o lote nao fecha", () => {
+  const project = projetoVista({
+    copies: "0",
+    labor: "10",
+    mesas: [
+      mesa({ id: "a", hours: "0", minutes: "0", grams: "1000", price: "100" }),
+      mesa({ id: "b", hours: "0", minutes: "0", grams: "1000", price: "100" }),
+    ],
+  })
+  const result = calculate(draftToCalcInput(project, prova))
+  assert.equal(result.piece.total !== null, true)
+  assert.equal(result.lot.total, null)
+  assert.equal(podeCopiarOrcamento(result.lot.total), false)
+})
+
+test("texto com impressora removida", () => {
+  const { texto } = textoDo(loteFechado(), prova, true)
+  assert.equal(texto.includes(AVISO_IMPRESSORA_REMOVIDA), true)
+  assert.equal(
+    AVISO_IMPRESSORA_REMOVIDA,
+    "A impressora gravada neste projeto foi removida. O cálculo usa a máquina marcada agora."
+  )
+  assert.equal(texto.includes("Prova: 100 W, 1 R$/kWh, impressora 1000, 1000 h."), true)
+})
+
+test("texto segue bia da tela", () => {
+  const { texto } = textoDo(loteFechado({ clientName: "Bia" }))
+  assert.equal(texto.includes("Bia"), true)
+  assert.equal(texto.includes("Cliente: Ana"), false)
+})
+
+test("copia falha mostra o texto", () => {
+  const { texto } = textoDo(loteFechado())
+  assert.equal(textoAposCopia(true, texto), texto)
+  assert.equal(textoAposCopia(false, texto), null)
+  assert.match(fonte("src/components/calculadora.tsx"), /textoAposCopia/)
+})
+
+test("texto fica e a lista reprecifica", () => {
+  const project = loteFechado()
+  const antigo = textoDo(project)
+  const novo = calculate(draftToCalcInput(project, { ...prova, energyPrice: "2" }))
+  assert.notEqual(novo.lot.total, antigo.result.lot.total)
+  assert.equal(antigo.texto.includes(formatBRL(antigo.result.lot.total ?? 0)), true)
+  assert.equal(antigo.texto.includes(formatBRL(novo.lot.total ?? 0)), false)
+  assert.match(fonte("src/components/lista-projetos.tsx"), /draftToCalcInput/)
+})
+
+test("texto com nenhuma cor", () => {
+  const project = projetoVista({ mode: "peca", copies: "1", hours: "1", minutes: "0", labor: "0", colors: [] })
+  const { result, texto } = textoDo(project)
+  assert.equal(result.lot.total !== null, true)
+  assert.equal(texto.includes("Nenhuma cor de filamento. O material entra como R$ 0,00."), true)
+})
+
+test("texto sem nome das cores", () => {
+  const { texto } = textoDo(loteFechado())
+  assert.equal(texto.includes("PLA preto"), false)
+  assert.equal(texto.includes("PLA branco"), false)
+})
+
+test("lista sem copiar orcamento", () => {
+  const lista = fonte("src/components/lista-projetos.tsx")
+  assert.equal(lista.includes("Copiar orçamento"), false)
+  assert.equal(lista.includes("ROTULO_COPIAR"), false)
 })

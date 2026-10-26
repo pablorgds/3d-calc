@@ -12,13 +12,14 @@
 | AD-006 | The admin does not read or edit another conta's impressoras, projetos, or settings. The admin only lists the other emails to reset that password. | The owner said `admin não vê` on 2026-10-08. A later feature must not add an admin bypass over those rows. | active | 2026-10-08 |
 | AD-007 | The `sessao` cookie is `Secure` only when the request host, port removed and lowercased, equals `ORIGEM_PUBLICA`. Any other host, and an empty `ORIGEM_PUBLICA`, omit `Secure`. Clearing the cookie uses the same bit. | Tailscale Funnel terminates TLS and proxies HTTP to 127.0.0.1:4317, preserving the public Host. The socket scheme is HTTP for the house and for the public name, so it cannot choose `Secure`. The owner confirmed `.design/url-publica.md` on 2026-10-08. | active | 2026-10-08 |
 | AD-008 | The public name is Tailscale Funnel to 127.0.0.1:4317. The node name is `calculadora`. Postgres has no host port. The router does not forward 4317. The process on 4317 is the built app. A new conta is only admin `incluir` on `/usuarios`. | The owner confirmed `.design/url-publica.md` on 2026-10-08: no purchased domain, this PC when it is on, no public signup. | active | 2026-10-08 |
+| AD-009 | The client is the name and phone stored on `projeto`, both empty text allowed. There is no `cliente` table. A later feature must not add a shared client row unless the owner asks for one phone that changes in one place across lotes. The orçamento is a reading of the calculator and `projeto` stores no total. | The owner confirmed `.design/orcamento.md` on 2026-10-26. A shared client, or a total column, would freeze or fan out data the list still recomputes from the printer tariff. | active | 2026-10-26 |
 
 ## Handoff
 
-**Feature**: url-publica
-**Where**: C1–C23 done. Proofs in `entrar.test.ts`, `compose.test.ts`, and `docs-banco.test.ts` passed.
+**Feature**: orcamento
+**Where**: C1–C28 implemented. Proofs in `projetos-store.test.ts`, `vistas.test.ts`, and `banco.test.ts` passed.
 **In progress**: none
-**Next step**: go-live is outside the repo. Name the Tailscale node `calculadora`, set `ORIGEM_PUBLICA` to `calculadora.<tailnet>.ts.net`, and run `tailscale funnel 4317` on this PC.
-**Blockers**: go-live still needs the Tailscale node `calculadora` and `ORIGEM_PUBLICA`.
-**Uncommitted**: none
+**Next step**: commit, then the Verifier
+**Blockers**: none
+**Uncommitted**: the orçamento files. `compose.yaml` has an unrelated `ORIGEM_PUBLICA` line and stays out.
 **Branch**: main

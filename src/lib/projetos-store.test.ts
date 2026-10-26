@@ -19,6 +19,8 @@ function project(overrides: Partial<Project> = {}): Project {
     grams: "40",
     colors: [{ id: "c1", name: "PLA preto", hex: "#111111", price: "90", grams: "40" }],
     mesas: [],
+    clientName: "",
+    clientPhone: "",
     updatedAt: 10,
     ...overrides,
   }
@@ -108,4 +110,22 @@ test("duplicar copia o lote e apagar tira só aquele", () => {
   const remaining = removeProject(copied, "p2")
   assert.equal(remaining.length, 1)
   assert.equal(remaining[0].id, "p1")
+})
+
+test("payload sem cliente le vazio", () => {
+  const projects = parseProjects(
+    JSON.stringify({
+      version: 1,
+      projects: [{ id: "p1", name: "Suporte", mode: "lote", updatedAt: 1 }],
+    })
+  )
+  assert.equal(projects[0]?.clientName, "")
+  assert.equal(projects[0]?.clientPhone, "")
+})
+
+test("payload de projetos versao 1", () => {
+  const salvo = JSON.parse(serializeProjects([project({ clientName: "Ana", clientPhone: "11999990000" })])) as {
+    version: number
+  }
+  assert.equal(salvo.version, 1)
 })

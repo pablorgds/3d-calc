@@ -67,6 +67,8 @@ function projeto(overrides: Partial<Project> = {}): Project {
     grams: "40",
     colors: [{ id: "c1", name: "PLA preto", hex: "#111111", price: "90", grams: "40" }],
     mesas: [],
+    clientName: "",
+    clientPhone: "",
     updatedAt: 10,
     ...overrides,
   }
@@ -158,6 +160,7 @@ test.describe("banco", { concurrency: 1 }, () => {
       const existe = await client.query<{ nome: string | null }>("SELECT to_regclass('public.conta') AS nome")
       if (existe.rows[0]?.nome) {
         await client.query("DROP TRIGGER IF EXISTS rejeita_falha_copia ON projeto")
+        await client.query("DROP TRIGGER IF EXISTS rejeita_cliente ON projeto")
         await client.query("DROP TRIGGER IF EXISTS rejeita_mesa ON mesa")
         await client.query("DROP TRIGGER IF EXISTS rejeita_conta_nova ON impressora")
         await client.query("TRUNCATE sessao, impressora_ativa, cor, mesa, projeto, impressora, conta")
@@ -593,7 +596,9 @@ $$`)
 
   test("abre pela database url", async () => {
     const anterior = process.env.DATABASE_URL
+    const direta = process.env.DATABASE_URL_UNPOOLED
     process.env.DATABASE_URL = url
+    delete process.env.DATABASE_URL_UNPOOLED
     try {
       const banco = envolver(abrirBancoDoAmbiente())
       ok(await banco.gravarProjeto(projeto({ id: "via-env", name: "Via env" })))
@@ -602,6 +607,26 @@ $$`)
     } finally {
       if (anterior === undefined) delete process.env.DATABASE_URL
       else process.env.DATABASE_URL = anterior
+      if (direta === undefined) delete process.env.DATABASE_URL_UNPOOLED
+      else process.env.DATABASE_URL_UNPOOLED = direta
+    }
+  })
+
+  test("abre pela database url direta", async () => {
+    const anterior = process.env.DATABASE_URL
+    const direta = process.env.DATABASE_URL_UNPOOLED
+    process.env.DATABASE_URL = "postgresql://custo:custo@127.0.0.1:1/custo_chapa"
+    process.env.DATABASE_URL_UNPOOLED = url
+    try {
+      const banco = envolver(abrirBancoDoAmbiente())
+      ok(await banco.gravarProjeto(projeto({ id: "via-direta", name: "Via direta" })))
+      const lido = ok(await banco.ler())
+      assert.equal(lido.projects.find((item) => item.id === "via-direta")?.name, "Via direta")
+    } finally {
+      if (anterior === undefined) delete process.env.DATABASE_URL
+      else process.env.DATABASE_URL = anterior
+      if (direta === undefined) delete process.env.DATABASE_URL_UNPOOLED
+      else process.env.DATABASE_URL_UNPOOLED = direta
     }
   })
 
@@ -1166,7 +1191,7 @@ $$`)
     )
     assert.deepEqual(
       projetoCols.rows.map((row) => row.column_name).sort(),
-      ["color_mode", "conta_id", "copies", "grams", "hours", "id", "labor", "minutes", "mode", "name", "printer_id", "updated_at"]
+      ["color_mode", "conta_id", "copies", "client_name", "client_phone", "grams", "hours", "id", "labor", "minutes", "mode", "name", "printer_id", "updated_at"].sort()
     )
   })
 
@@ -1692,5 +1717,142 @@ $$`)
   test("banco sem cookies", () => {
     const bancoSrc = fs.readFileSync(path.join(root, "src/lib/banco.ts"), "utf8")
     assert.equal(bancoSrc.includes("cookies("), false)
+  })
+
+  test("grava cliente ana", async () => {
+    ok(await bancoProva().gravarProjeto(projeto({ clientName: "Ana", clientPhone: "11999990000" })))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.projects[0]?.clientName, "Ana")
+    assert.equal(lido.projects[0]?.clientPhone, "11999990000")
+  })
+
+  test("cliente vazio continua na lista", async () => {
+    ok(await bancoProva().gravarProjeto(projeto({ clientName: "", clientPhone: "" })))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.projects.length, 1)
+    assert.equal(lido.projects[0]?.id, "p1")
+    assert.equal(lido.projects[0]?.clientName, "")
+    assert.equal(lido.projects[0]?.clientPhone, "")
+  })
+
+  test("nome de cliente com espaco", async () => {
+    ok(await bancoProva().gravarProjeto(projeto({ clientName: " Ana " })))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.projects[0]?.clientName, " Ana ")
+  })
+
+  test("telefone de cliente como digitado", async () => {
+    ok(await bancoProva().gravarProjeto(projeto({ clientPhone: "11 99999-0000" })))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.projects[0]?.clientPhone, "11 99999-0000")
+  })
+
+  test("duplicar copia cliente", async () => {
+    ok(await bancoProva().gravarProjeto(projeto({ name: "Suporte", clientName: "Ana", clientPhone: "11999990000" })))
+    ok(await bancoProva().duplicarProjeto("p1", "p2", 99))
+    const copia = ok(await bancoProva().ler()).projects.find((item) => item.id === "p2")
+    assert.equal(copia?.name, "Suporte (cópia)")
+    assert.equal(copia?.clientName, "Ana")
+    assert.equal(copia?.clientPhone, "11999990000")
+  })
+
+  test("projeto antigo le cliente vazio", async () => {
+    await sql("ALTER TABLE projeto DROP COLUMN client_name")
+    await sql("ALTER TABLE projeto DROP COLUMN client_phone")
+    await sql(
+      `INSERT INTO projeto (id, conta_id, name, printer_id, mode, copies, hours, minutes, labor, color_mode, grams, updated_at)
+       VALUES ('antigo', $1, 'Antigo', 'k2-pro', 'peca', '1', '1', '0', '0', 'unica', '1', 10)`,
+      [contaIdProva]
+    )
+    const lido = ok(await bancoProva().ler())
+    const antigo = lido.projects.find((item) => item.id === "antigo")
+    assert.equal(antigo?.clientName, "")
+    assert.equal(antigo?.clientPhone, "")
+  })
+
+  test("apagar projeto leva o cliente", async () => {
+    ok(await bancoProva().gravarProjeto(projeto({ clientName: "Ana" })))
+    ok(await bancoProva().apagarProjeto("p1"))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(
+      lido.projects.some((item) => item.id === "p1"),
+      false
+    )
+  })
+
+  test("gravacao atrasada mantem cliente", async () => {
+    ok(await bancoProva().gravarProjeto(projeto({ clientName: "Ana", updatedAt: 20 })))
+    ok(await bancoProva().gravarProjeto({ ...projeto({ clientName: "Bia", updatedAt: 30 }), expectedUpdatedAt: 10 }))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.projects[0]?.clientName, "Ana")
+    assert.equal(lido.projects[0]?.updatedAt, 20)
+  })
+
+  test("falha ao gravar cliente volta ana", async () => {
+    ok(await bancoProva().gravarProjeto(projeto({ clientName: "Ana" })))
+    await sql(`CREATE OR REPLACE FUNCTION rejeita_cliente() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'falha cliente';
+END;
+$$`)
+    await sql("CREATE TRIGGER rejeita_cliente BEFORE UPDATE ON projeto FOR EACH ROW EXECUTE FUNCTION rejeita_cliente()")
+    await assert.rejects(bancoProva().gravarProjeto(projeto({ clientName: "Bia", updatedAt: 30 })))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.projects[0]?.clientName, "Ana")
+  })
+
+  test("colunas de cliente no schema", async () => {
+    ok(await bancoProva().ler())
+    const colunas = await sql<{ column_name: string; data_type: string; is_nullable: string; column_default: string | null }>(
+      `SELECT column_name, data_type, is_nullable, column_default
+       FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'projeto' AND column_name IN ('client_name', 'client_phone')
+       ORDER BY column_name`
+    )
+    assert.deepEqual(
+      colunas.rows.map((row) => row.column_name),
+      ["client_name", "client_phone"]
+    )
+    for (const row of colunas.rows) {
+      assert.equal(row.data_type, "text", row.column_name)
+      assert.equal(row.is_nullable, "NO", row.column_name)
+      assert.match(row.column_default ?? "", /''/)
+    }
+    const cliente = await sql<{ nome: string | null }>("SELECT to_regclass('public.cliente') AS nome")
+    assert.equal(cliente.rows[0]?.nome, null)
+  })
+
+  test("leitura continua ana", async () => {
+    ok(await bancoProva().gravarProjeto(projeto({ clientName: "Ana", updatedAt: 20 })))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.projects[0]?.clientName, "Ana")
+    assert.equal(lido.projects[0]?.updatedAt, 20)
+  })
+
+  test("copiar duas vezes nao grava projeto", async () => {
+    ok(await bancoProva().gravarProjeto(projeto({ id: "p1", clientName: "Ana", updatedAt: 20 })))
+    const { textoOrcamento } = await import("./vistas.ts")
+    const { calculate, draftToCalcInput } = await import("./custo.ts")
+    const salvo = ok(await bancoProva().ler()).projects[0]
+    assert.ok(salvo)
+    const impressora = { name: "Prova", watts: "100", energyPrice: "1", printerPrice: "1000", lifeHours: "1000" }
+    const result = calculate(draftToCalcInput(salvo, impressora))
+    const entrada = {
+      lote: salvo.name,
+      clientName: salvo.clientName,
+      clientPhone: salvo.clientPhone,
+      printer: impressora,
+      impressoraRemovida: false,
+      mode: salvo.mode,
+      result,
+    }
+    textoOrcamento(entrada)
+    textoOrcamento(entrada)
+    const lido = ok(await bancoProva().ler())
+    assert.deepEqual(
+      lido.projects.map((item) => item.id),
+      ["p1"]
+    )
+    assert.equal(lido.projects[0]?.updatedAt, 20)
   })
 })

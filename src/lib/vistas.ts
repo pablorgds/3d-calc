@@ -1,4 +1,4 @@
-import { combineTime, formatBRL, formatDuration, parseInteger, type EntryMode } from "./custo"
+import { combineTime, formatBRL, formatDuration, formatGrams, parseInteger, type Amount, type CalcResult, type EntryMode } from "./custo"
 import type { Project } from "./projetos-store"
 
 export const TEXTO_LENDO = "Lendo impressoras e projetos."
@@ -98,4 +98,130 @@ export function frasesCalculadora(situacao: "ausente" | "gravado" | "novo") {
     ausente: situacao === "ausente" ? FRASE_AUSENTE : null,
     descricao: situacao === "gravado" ? FRASE_GRAVADO : "Ainda não está na lista de Projetos.",
   }
+}
+
+export const ROTULO_CLIENTE = "Cliente"
+export const ROTULO_TELEFONE = "Telefone"
+export const ROTULO_COPIAR = "Copiar orçamento"
+export const AVISO_IMPRESSORA_REMOVIDA =
+  "A impressora gravada neste projeto foi removida. O cálculo usa a máquina marcada agora."
+
+export function linhaCliente(project: Pick<Project, "clientName" | "clientPhone">) {
+  const nome = project.clientName.trim()
+  const telefone = project.clientPhone.trim()
+  if (!nome && !telefone) return null
+  return [nome, telefone].filter((parte) => parte !== "").join(" · ")
+}
+
+export function podeCopiarOrcamento(total: Amount) {
+  return total !== null
+}
+
+export function textoAposCopia(falhou: boolean, texto: string) {
+  return falhou ? texto : null
+}
+
+export function linhaImpressora(printer: { name: string; watts: string; energyPrice: string; printerPrice: string; lifeHours: string }) {
+  return `${printer.name.trim() || "Sem nome"}: ${printer.watts} W, ${printer.energyPrice} R$/kWh, impressora ${printer.printerPrice}, ${printer.lifeHours} h.`
+}
+
+export function notasResultado(result: CalcResult, mode: EntryMode): string[] {
+  const notes: string[] = []
+  if (result.materialIssue === "no-colors") {
+    notes.push("Nenhuma cor de filamento. O material entra como R$ 0,00.")
+  }
+  if (result.materialIssue === "invalid-color") {
+    notes.push("Há cor com preço ou peso vazio ou inválido. O material sai do total até corrigir.")
+  }
+  if (result.lifeIssue === "zero") {
+    notes.push(
+      "Depreciação fora da conta: a vida útil em Configurações está em 0. Ela não vira 1 hora. O valor usado é R$ 0,00."
+    )
+  }
+  if (result.lifeIssue === "empty") {
+    notes.push("Depreciação fora da conta: preencha a vida útil em Configurações. Campo vazio não vira 1.")
+  }
+  if (result.lifeIssue === "invalid") {
+    notes.push("Vida útil inválida em Configurações. Use um número de horas maior que zero.")
+  }
+  if (result.timeIssue === "empty") {
+    notes.push("Tempo vazio. Energia e depreciação ficam sem cálculo.")
+  }
+  if (result.timeIssue === "invalid") {
+    notes.push("Tempo inválido. Use zero ou um número positivo.")
+  }
+  if (result.energyIssue === "empty") {
+    notes.push("Potência ou preço do kWh está vazio em Configurações. A energia não foi calculada.")
+  }
+  if (result.energyIssue === "invalid") {
+    notes.push("Potência ou preço do kWh inválido em Configurações.")
+  }
+  if (result.printerPriceIssue !== "none" && result.timeIssue === "none" && result.lifeIssue === "none") {
+    notes.push("Preço da impressora vazio ou inválido em Configurações. A depreciação não foi calculada.")
+  }
+  if (result.laborIssue === "empty") {
+    notes.push("Percentual de mão de obra vazio. O acréscimo não foi aplicado.")
+  }
+  if (result.laborIssue === "invalid") {
+    notes.push("Percentual de mão de obra inválido.")
+  }
+  if (!result.mesas && mode === "lote" && result.piece.blockedByCopies) {
+    notes.push("Custo por peça bloqueado. No modo lote, cópias precisa ser maior que zero.")
+  }
+  if (!result.mesas && mode === "peca" && result.lot.blockedByCopies) {
+    notes.push("Custo do lote bloqueado. Informe as cópias com um inteiro a partir de zero.")
+  }
+  if (!result.mesas && mode === "peca") {
+    notes.push("Peça única: não há cópias na mesa. O lote é esta mesma peça.")
+  }
+  return notes
+}
+
+function valorLado(value: Amount, kind: "money" | "time" | "grams") {
+  if (value === null) return null
+  if (kind === "money") return formatBRL(value)
+  if (kind === "time") return formatDuration(value)
+  return formatGrams(value)
+}
+
+function linhaLado(piece: Amount, lot: Amount, kind: "money" | "time" | "grams") {
+  return [valorLado(piece, kind), valorLado(lot, kind)].filter((parte): parte is string => parte !== null).join(" · ")
+}
+
+export function textoOrcamento(input: {
+  lote: string
+  clientName: string
+  clientPhone: string
+  printer: { name: string; watts: string; energyPrice: string; printerPrice: string; lifeHours: string }
+  impressoraRemovida: boolean
+  mode: EntryMode
+  result: CalcResult
+}) {
+  const linhas = [input.lote.trim() || "Sem nome"]
+  const cliente = input.clientName.trim()
+  const telefone = input.clientPhone.trim()
+  if (cliente) linhas.push(`Cliente: ${cliente}`)
+  if (telefone) linhas.push(`Telefone: ${telefone}`)
+  if (input.impressoraRemovida) linhas.push(AVISO_IMPRESSORA_REMOVIDA)
+  linhas.push(linhaImpressora(input.printer))
+  if (input.result.piece.total !== null) {
+    linhas.push("Por peça")
+    linhas.push(linhaLado(input.result.piece.total, null, "money"))
+    linhas.push(linhaLado(input.result.piece.minutes, null, "time"))
+  }
+  linhas.push("Lote")
+  linhas.push(linhaLado(null, input.result.lot.total, "money"))
+  linhas.push(linhaLado(null, input.result.lot.minutes, "time"))
+  linhas.push("Material")
+  linhas.push(linhaLado(input.result.piece.material, input.result.lot.material, "money"))
+  linhas.push("Energia")
+  linhas.push(linhaLado(input.result.piece.energy, input.result.lot.energy, "money"))
+  linhas.push("Depreciação")
+  linhas.push(linhaLado(input.result.piece.depreciation, input.result.lot.depreciation, "money"))
+  linhas.push("Mão de obra")
+  linhas.push(linhaLado(input.result.piece.labor, input.result.lot.labor, "money"))
+  linhas.push("Peso")
+  linhas.push(linhaLado(input.result.piece.grams, input.result.lot.grams, "grams"))
+  linhas.push(...notasResultado(input.result, input.mode))
+  return linhas.filter((linha) => linha !== "").join("\n")
 }

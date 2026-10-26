@@ -16,7 +16,6 @@ import {
   formatDuration,
   formatGrams,
   type Amount,
-  type CalcResult,
   type ColorDraft,
   type ColorMode,
   type EntryMode,
@@ -33,7 +32,14 @@ import {
   FRASE_GRAVAR,
   FRASE_VARIAS_CORES,
   frasesCalculadora,
+  notasResultado,
+  podeCopiarOrcamento,
+  ROTULO_CLIENTE,
+  ROTULO_COPIAR,
+  ROTULO_TELEFONE,
+  textoAposCopia,
   textoDeTotal,
+  textoOrcamento,
   vistaCarregamento,
 } from "@/lib/vistas"
 import { atrasoLista, type TipoMontagem } from "@/lib/movimento"
@@ -50,58 +56,6 @@ function showTime(value: Amount) {
 
 function showGrams(value: Amount) {
   return value === null ? "—" : formatGrams(value)
-}
-
-function resultNotes(result: CalcResult, mode: EntryMode): string[] {
-  const notes: string[] = []
-  if (result.materialIssue === "no-colors") {
-    notes.push("Nenhuma cor de filamento. O material entra como R$ 0,00.")
-  }
-  if (result.materialIssue === "invalid-color") {
-    notes.push("Há cor com preço ou peso vazio ou inválido. O material sai do total até corrigir.")
-  }
-  if (result.lifeIssue === "zero") {
-    notes.push(
-      "Depreciação fora da conta: a vida útil em Configurações está em 0. Ela não vira 1 hora. O valor usado é R$ 0,00."
-    )
-  }
-  if (result.lifeIssue === "empty") {
-    notes.push("Depreciação fora da conta: preencha a vida útil em Configurações. Campo vazio não vira 1.")
-  }
-  if (result.lifeIssue === "invalid") {
-    notes.push("Vida útil inválida em Configurações. Use um número de horas maior que zero.")
-  }
-  if (result.timeIssue === "empty") {
-    notes.push("Tempo vazio. Energia e depreciação ficam sem cálculo.")
-  }
-  if (result.timeIssue === "invalid") {
-    notes.push("Tempo inválido. Use zero ou um número positivo.")
-  }
-  if (result.energyIssue === "empty") {
-    notes.push("Potência ou preço do kWh está vazio em Configurações. A energia não foi calculada.")
-  }
-  if (result.energyIssue === "invalid") {
-    notes.push("Potência ou preço do kWh inválido em Configurações.")
-  }
-  if (result.printerPriceIssue !== "none" && result.timeIssue === "none" && result.lifeIssue === "none") {
-    notes.push("Preço da impressora vazio ou inválido em Configurações. A depreciação não foi calculada.")
-  }
-  if (result.laborIssue === "empty") {
-    notes.push("Percentual de mão de obra vazio. O acréscimo não foi aplicado.")
-  }
-  if (result.laborIssue === "invalid") {
-    notes.push("Percentual de mão de obra inválido.")
-  }
-  if (!result.mesas && mode === "lote" && result.piece.blockedByCopies) {
-    notes.push("Custo por peça bloqueado. No modo lote, cópias precisa ser maior que zero.")
-  }
-  if (!result.mesas && mode === "peca" && result.lot.blockedByCopies) {
-    notes.push("Custo do lote bloqueado. Informe as cópias com um inteiro a partir de zero.")
-  }
-  if (!result.mesas && mode === "peca") {
-    notes.push("Peça única: não há cópias na mesa. O lote é esta mesma peça.")
-  }
-  return notes
 }
 
 function ColorEditor({
@@ -245,6 +199,8 @@ function CalculadoraEditor({
   const printerStore = usePrinterStore()
   const printer = printerStore ? activePrinterOf(printerStore) : null
   const [projectName, setProjectName] = useState(initial?.name ?? "")
+  const [clientName, setClientName] = useState(initial?.clientName ?? "")
+  const [clientPhone, setClientPhone] = useState(initial?.clientPhone ?? "")
   const [nameError, setNameError] = useState<string | null>(null)
   const [mode, setMode] = useState<EntryMode>(initial?.mode ?? "peca")
   const [copies, setCopies] = useState(initial?.copies ?? "")
@@ -257,6 +213,7 @@ function CalculadoraEditor({
   const [mesas, setMesas] = useState<MesaDraft[]>(initial?.mesas ?? [])
   const [recusa, setRecusa] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [textoSelecionavel, setTextoSelecionavel] = useState<string | null>(null)
 
   useEffect(() => {
     const printerId = initial?.printerId
@@ -312,6 +269,8 @@ function CalculadoraEditor({
       grams,
       colors,
       mesas,
+      clientName,
+      clientPhone,
       updatedAt: initial?.updatedAt ?? 0,
     }
   }
@@ -326,6 +285,8 @@ function CalculadoraEditor({
     setGrams(next.grams)
     setColors(next.colors)
     setMesas(next.mesas ?? [])
+    setClientName(next.clientName)
+    setClientPhone(next.clientPhone)
   }
 
   async function incluirMesa() {
@@ -421,6 +382,8 @@ function CalculadoraEditor({
             grams: "",
             colors: [],
             mesas,
+            clientName,
+            clientPhone,
             updatedAt: 0,
             expectedUpdatedAt: esperado,
           }
@@ -437,6 +400,8 @@ function CalculadoraEditor({
             grams,
             colors: colorMode === "unica" ? colors.slice(0, 1).map((color) => ({ ...color, grams })) : colors,
             mesas: [],
+            clientName,
+            clientPhone,
             updatedAt: 0,
             expectedUpdatedAt: esperado,
           }
@@ -452,6 +417,8 @@ function CalculadoraEditor({
       return
     }
     setProjectName("")
+    setClientName("")
+    setClientPhone("")
     setMode("peca")
     setCopies("")
     setHours("")
@@ -475,8 +442,26 @@ function CalculadoraEditor({
     Boolean(initial?.printerId) &&
     !printerStore.printers.some((item) => item.id === initial?.printerId)
 
-  const notes = resultNotes(result, mode)
+  const notes = notasResultado(result, mode)
   const ficha = fichaCalculadora(mesas.length > 0, mode)
+
+  async function copiarOrcamento() {
+    const texto = textoOrcamento({
+      lote: projectName,
+      clientName,
+      clientPhone,
+      printer,
+      impressoraRemovida: linkedPrinterMissing,
+      mode,
+      result,
+    })
+    try {
+      await navigator.clipboard.writeText(texto)
+      setTextoSelecionavel(textoAposCopia(false, texto))
+    } catch {
+      setTextoSelecionavel(textoAposCopia(true, texto))
+    }
+  }
   const avisoCopias = mesas.length > 0 ? avisoCopiasProduto(copies) : null
   const modeHint =
     mode === "peca"
@@ -553,6 +538,28 @@ function CalculadoraEditor({
                   className="h-11"
                 />
                 {nameError ? <p className="erro-campo">{nameError}</p> : null}
+              </div>
+              <div className="campo">
+                <Label htmlFor="cliente">{ROTULO_CLIENTE}</Label>
+                <Input
+                  id="cliente"
+                  value={clientName}
+                  onChange={(event) => setClientName(event.target.value)}
+                  autoComplete="off"
+                  data-testid="cliente"
+                  className="h-11"
+                />
+              </div>
+              <div className="campo">
+                <Label htmlFor="telefone">{ROTULO_TELEFONE}</Label>
+                <Input
+                  id="telefone"
+                  value={clientPhone}
+                  onChange={(event) => setClientPhone(event.target.value)}
+                  autoComplete="off"
+                  data-testid="telefone"
+                  className="h-11"
+                />
               </div>
               <div className="campo">
                 <Label htmlFor="impressora-ativa">Impressora</Label>
@@ -926,6 +933,17 @@ function CalculadoraEditor({
               <CostRow label="Peso" piece={result.piece.grams} lot={result.lot.grams} testId="peso" kind="grams" />
             </tbody>
           </table>
+
+          {podeCopiarOrcamento(result.lot.total) ? (
+            <Button type="button" variant="outline" className="h-11" onClick={() => void copiarOrcamento()} data-testid="copiar-orcamento">
+              {ROTULO_COPIAR}
+            </Button>
+          ) : null}
+          {textoSelecionavel ? (
+            <p className="whitespace-pre-wrap text-sm" data-testid="orcamento-texto">
+              {textoSelecionavel}
+            </p>
+          ) : null}
 
           {result.colors.length > 0 ? (
             <ul className="grid gap-1 text-sm" data-testid="cores-material">
