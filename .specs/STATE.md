@@ -17,9 +17,9 @@
 ## Handoff
 
 **Feature**: orcamento
-**Where**: C1–C28 implemented. Proofs in `projetos-store.test.ts`, `vistas.test.ts`, and `banco.test.ts` passed.
+**Where**: C1–C28 verified PASS, profile light, in `.specs/features/orcamento/verification.md`.
 **In progress**: none
-**Next step**: the Verifier, over 07d9f35..HEAD
+**Next step**: none for this feature
 **Blockers**: none
 **Uncommitted**: `compose.yaml` has an unrelated `ORIGEM_PUBLICA` line and stays out.
 **Branch**: main
