@@ -14,6 +14,7 @@ Para o valor digitado (uma peça no modo peça, a mesa no modo lote):
 - Depreciação = (preço da máquina ÷ vida útil em horas) × horas.
 - Mão de obra = (material + energia + depreciação) × (percentual ÷ 100).
 - Total = material + energia + depreciação + mão de obra.
+- Coeficiente da impressora, abaixo de 100, divide esse total por (1 − coeficiente/100). Vazio ou zero deixa o total nessa soma. 100 ou mais, ou inválido, deixa o total sem fechar. Material, energia, depreciação, mão de obra, minutos e gramas continuam o custo real.
 
 A mão de obra não entra na própria base. Vida útil `0` zera a depreciação e marca `depreciationBlocked`; o total continua, com depreciação zero. Não existe fallback de 1 hora.
 

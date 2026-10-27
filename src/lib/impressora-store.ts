@@ -7,6 +7,7 @@ export type Printer = {
   energyPrice: string
   printerPrice: string
   lifeHours: string
+  coefficient: string
 }
 
 export type PrinterStore = {
@@ -21,6 +22,7 @@ export const defaultPrinter: Printer = {
   energyPrice: "1.18",
   printerPrice: "7979",
   lifeHours: "3000",
+  coefficient: "",
 }
 
 const blankNumbers = {
@@ -60,6 +62,7 @@ function parsePrinter(value: unknown, fallbackId: string): Printer | null {
     energyPrice: asString(record.energyPrice, defaultPrinter.energyPrice),
     printerPrice: asString(record.printerPrice, defaultPrinter.printerPrice),
     lifeHours: asString(record.lifeHours, defaultPrinter.lifeHours),
+    coefficient: asString(record.coefficient, ""),
   }
 }
 
@@ -136,6 +139,7 @@ export function insertPrinter(store: PrinterStore, id: string): PrinterStore {
         energyPrice: "",
         printerPrice: "",
         lifeHours: "",
+        coefficient: "",
       },
     ],
   }

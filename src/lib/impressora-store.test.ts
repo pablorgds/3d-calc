@@ -84,3 +84,33 @@ test("a lista gravada reabre com a máquina marcada", () => {
   assert.equal(store.activeId, "b")
   assert.equal(store.printers[1].watts, "80")
 })
+
+test("payload sem coeficiente le vazio", () => {
+  const store = parsePrinterStore(
+    JSON.stringify({
+      version: 3,
+      activeId: "k2-pro",
+      printers: [
+        {
+          id: "k2-pro",
+          name: "K2 Pro",
+          watts: "150",
+          energyPrice: "1.18",
+          printerPrice: "7979",
+          lifeHours: "3000",
+        },
+      ],
+    })
+  )
+  assert.equal(store.printers[0].coefficient, "")
+})
+
+test("payload de impressoras versao 3", () => {
+  const cru = serializePrinterStore({
+    activeId: defaultPrinter.id,
+    printers: [{ ...defaultPrinter, coefficient: "20" }],
+  })
+  const json = JSON.parse(cru) as { version: number }
+  assert.equal(json.version, 3)
+  assert.equal(parsePrinterStore(cru).printers[0].coefficient, "20")
+})

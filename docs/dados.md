@@ -26,15 +26,16 @@ Versão atual do JSON: `3`.
       "watts": "150",
       "energyPrice": "1.18",
       "printerPrice": "7979",
-      "lifeHours": "3000"
+      "lifeHours": "3000",
+      "coefficient": ""
     }
   ]
 }
 ```
 
-Sem gravação, a máquina é essa K2 Pro. Um objeto antigo de uma impressora só (sem lista `printers`) vira a K2 Pro e conserva watts, tarifa, preço e vida útil. Zeros sem `version` são descartados e voltam à K2 Pro preenchida. JSON inválido também volta ao padrão.
+Sem gravação, a máquina é essa K2 Pro. A versão do JSON continua `3`. Um payload sem `coefficient` lê `""`. Um objeto antigo de uma impressora só (sem lista `printers`) vira a K2 Pro e conserva watts, tarifa, preço e vida útil. Zeros sem `version` são descartados e voltam à K2 Pro preenchida. JSON inválido também volta ao padrão.
 
-A calculadora usa a máquina marcada (`activeId`). Dá para acrescentar máquina; ela nasce com os números vazios, nome “Nova impressora”, e passa a ser a marcada. O campo mostra o exemplo em placeholder. Zeros gravados de propósito continuam zero. A última máquina não sai. Remover a marcada passa a marca para a primeira que sobrou.
+A calculadora usa a máquina marcada (`activeId`). O coeficiente é texto na impressora, como os outros números. Vazio vale zero: o total continua a soma de hoje. A lista recalcula o lote com o coeficiente atual dessa máquina, do mesmo jeito que faz com a tarifa. Dá para acrescentar máquina; ela nasce com os números vazios, inclusive o coeficiente, nome “Nova impressora”, e passa a ser a marcada. O campo mostra o exemplo em placeholder. Zeros gravados de propósito continuam zero. A última máquina não sai. Remover a marcada passa a marca para a primeira que sobrou.
 
 ## Projetos
 
@@ -92,4 +93,4 @@ Um projeto é uma impressão ou uma lista de mesas. A tabela `mesa` guarda cada 
 }
 ```
 
-A lista ordena por `updatedAt` decrescente e, no empate, pelo nome em pt-BR. Ids repetidos na leitura ficam só com a primeira ocorrência. JSON inválido ou item sem `id` e `mode` some da lista. Duplicar copia o lote, inclusive as cores e o cliente, com o nome acrescido de “ (cópia)”. O cliente é `clientName` e `clientPhone`, texto como foi digitado. Os dois podem ser `""`. Um payload sem esses campos lê os dois como `""`. O total continua fora do projeto.
+A lista ordena por `updatedAt` decrescente e, no empate, pelo nome em pt-BR. Ids repetidos na leitura ficam só com a primeira ocorrência. JSON inválido ou item sem `id` e `mode` some da lista. Duplicar copia o lote, inclusive as cores e o cliente, com o nome acrescido de “ (cópia)”. O cliente é `clientName` e `clientPhone`. O nome fica como foi digitado. O telefone na calculadora entra com a máscara `(xx) xxxxx-xxxx`. Um valor já gravado em outro formato permanece até a calculadora gravar de novo. Os dois podem ser `""`. Um payload sem esses campos lê os dois como `""`. O total continua fora do projeto.

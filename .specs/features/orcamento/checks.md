@@ -1,5 +1,7 @@
 # Orçamento checks
 
+The client-text content was superseded by `.specs/features/coeficiente/checks.md` on 2026-10-27. The claims below stay as they were approved.
+
 Profile: light
 Plan: `.specs/features/orcamento/plan.md`
 

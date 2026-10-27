@@ -3,7 +3,7 @@ import assert from "node:assert/strict"
 import fs from "node:fs"
 import path from "node:path"
 import test from "node:test"
-import { calculate, draftToCalcInput, errosAoGravar, formatBRL, formatDuration, formatGrams, type MesaDraft } from "./custo.ts"
+import { calculate, draftToCalcInput, errosAoGravar, formatBRL, formatDuration, type MesaDraft } from "./custo.ts"
 import type { Project } from "./projetos-store.ts"
 
 const { ganharMesa, perderMesa } = await import("./projetos-store.ts")
@@ -31,10 +31,12 @@ const {
   vistaCarregamento,
   AVISO_IMPRESSORA_REMOVIDA,
   ROTULO_CLIENTE,
+  ROTULO_COEFICIENTE,
   ROTULO_COPIAR,
   ROTULO_TELEFONE,
   linhaCliente,
-  linhaImpressora,
+  mascaraTelefone,
+  notasResultado,
   podeCopiarOrcamento,
   textoAposCopia,
   textoOrcamento,
@@ -452,6 +454,25 @@ test("campos cliente e telefone", () => {
   assert.equal(calculadora.includes("clientName.trim()"), false)
 })
 
+test("mascara de telefone", () => {
+  assert.equal(mascaraTelefone(""), "")
+  assert.equal(mascaraTelefone("1"), "(1")
+  assert.equal(mascaraTelefone("11"), "(11")
+  assert.equal(mascaraTelefone("119"), "(11) 9")
+  assert.equal(mascaraTelefone("1199999"), "(11) 99999")
+  assert.equal(mascaraTelefone("11999990"), "(11) 99999-0")
+  assert.equal(mascaraTelefone("11999990000"), "(11) 99999-0000")
+  assert.equal(mascaraTelefone("11999990000123"), "(11) 99999-0000")
+  assert.equal(mascaraTelefone("(11) 99999-0000"), "(11) 99999-0000")
+  assert.equal(mascaraTelefone("11 99999-0000"), "(11) 99999-0000")
+  assert.equal(mascaraTelefone("11a99999b0000"), "(11) 99999-0000")
+  assert.equal(mascaraTelefone("(11 99999-0000", "(11) 99999-0000"), "(11) 99999-000")
+  assert.equal(mascaraTelefone("(11) 99999-000", "(11) 99999-0000"), "(11) 99999-000")
+  const calculadora = fonte("src/components/calculadora.tsx")
+  assert.match(calculadora, /mascaraTelefone\(event\.target\.value, clientPhone\)/)
+  assert.match(calculadora, /placeholder="\(00\) 00000-0000"/)
+})
+
 test("botao copiar orcamento quando o lote fecha", () => {
   const { result } = textoDo(loteFechado())
   assert.equal(result.lot.total !== null, true)
@@ -465,42 +486,55 @@ test("botao copiar orcamento quando o lote fecha", () => {
 test("texto do orcamento do lote fechado", () => {
   const project = loteFechado()
   const { result, texto } = textoDo(project)
-  const marcas = [
-    "Suporte",
-    "Cliente: Ana",
-    "Telefone: 11999990000",
-    linhaImpressora(prova),
-    "Por peça",
-    "Lote",
-    "Material",
-    "Energia",
-    "Depreciação",
-    "Mão de obra",
-    "Peso",
-  ]
+  const marcas = ["*Suporte*", "*Cliente: Ana*", "*Telefone: 11999990000*", "*Por peça:", "*Lote:"]
   let anterior = -1
   for (const marca of marcas) {
     const em = texto.indexOf(marca)
     assert.ok(em > anterior, marca)
     anterior = em
   }
-  assert.equal(linhaImpressora(prova), "Prova: 100 W, 1 R$/kWh, impressora 1000, 1000 h.")
-  for (const lado of [result.piece, result.lot]) {
-    assert.equal(texto.includes(formatBRL(lado.material ?? 0)), true)
-    assert.equal(texto.includes(formatBRL(lado.energy ?? 0)), true)
-    assert.equal(texto.includes(formatBRL(lado.depreciation ?? 0)), true)
-    assert.equal(texto.includes(formatBRL(lado.labor ?? 0)), true)
-    assert.equal(texto.includes(formatBRL(lado.total ?? 0)), true)
-    assert.equal(texto.includes(formatDuration(lado.minutes ?? 0)), true)
-    assert.equal(texto.includes(formatGrams(lado.grams ?? 0)), true)
-  }
+  assert.equal(texto.includes(formatBRL(result.piece.total ?? 0)), true)
+  assert.equal(texto.includes(formatBRL(result.lot.total ?? 0)), true)
+  assert.equal(texto.includes(formatDuration(result.piece.minutes ?? 0)), true)
+  assert.equal(texto.includes(formatDuration(result.lot.minutes ?? 0)), true)
+  assert.equal(
+    texto.includes(`*Por peça: ${formatBRL(result.piece.total ?? 0)} · ${formatDuration(result.piece.minutes ?? 0)}*`),
+    true
+  )
+  assert.equal(texto.includes("Material"), false)
+  assert.equal(texto.includes("\n\n"), true)
+})
+
+test("texto de peca unica cabe no whatsapp", () => {
+  const project = projetoVista({
+    name: "Cubo Infinito",
+    mode: "peca",
+    hours: "1",
+    minutes: "30",
+    labor: "20",
+    grams: "28.79",
+    colors: [{ id: "a", name: "PLA preto", hex: "#111111", price: "100", grams: "28.79" }],
+  })
+  const { result, texto } = textoDo(project)
+  assert.equal(result.piece.total !== null, true)
+  assert.equal(formatBRL(result.piece.total ?? 0), formatBRL(result.lot.total ?? 0))
+  assert.equal(texto.startsWith("*Cubo Infinito*"), true)
+  assert.equal(texto.includes("*Por peça:"), false)
+  assert.equal(texto.includes("*Lote:"), false)
+  assert.equal(texto.includes(`*Total: ${formatBRL(result.lot.total ?? 0)} · ${formatDuration(result.lot.minutes ?? 0)}*`), true)
+  assert.equal(texto.includes("Material"), false)
+  assert.equal(texto.includes(" a peça · "), false)
+  assert.equal(texto.includes("\n\n*Total:"), true)
 })
 
 test("texto sem linhas de cliente", () => {
-  const { result, texto } = textoDo(loteFechado({ clientName: "   ", clientPhone: "  " }))
+  const { texto } = textoDo(
+    projetoDeProva({ clientName: "   ", clientPhone: "  " }),
+    { ...prova, coefficient: "20" }
+  )
   assert.equal(texto.includes("Cliente:"), false)
   assert.equal(texto.includes("Telefone:"), false)
-  assert.equal(texto.includes(formatBRL(result.lot.total ?? 0)), true)
+  assert.equal(texto.includes(formatBRL(110)), true)
 })
 
 test("texto sem por peca com copias 0", () => {
@@ -517,7 +551,7 @@ test("texto sem por peca com copias 0", () => {
   const { result, texto } = textoDo(project)
   assert.equal(result.piece.total, null)
   assert.equal(result.lot.total !== null, true)
-  assert.equal(texto.includes("Custo por peça bloqueado. No modo lote, cópias precisa ser maior que zero."), true)
+  assert.equal(texto.includes("Custo por peça bloqueado. No modo lote, cópias precisa ser maior que zero."), false)
   assert.equal(texto.includes(formatBRL(result.lot.total ?? 0)), true)
   assert.equal(texto.includes("Por peça"), false)
 })
@@ -539,12 +573,8 @@ test("sem botao quando o lote nao fecha", () => {
 
 test("texto com impressora removida", () => {
   const { texto } = textoDo(loteFechado(), prova, true)
-  assert.equal(texto.includes(AVISO_IMPRESSORA_REMOVIDA), true)
-  assert.equal(
-    AVISO_IMPRESSORA_REMOVIDA,
-    "A impressora gravada neste projeto foi removida. O cálculo usa a máquina marcada agora."
-  )
-  assert.equal(texto.includes("Prova: 100 W, 1 R$/kWh, impressora 1000, 1000 h."), true)
+  assert.equal(texto.includes(AVISO_IMPRESSORA_REMOVIDA), false)
+  assert.equal(texto.includes("Prova:"), false)
 })
 
 test("texto segue bia da tela", () => {
@@ -574,7 +604,7 @@ test("texto com nenhuma cor", () => {
   const project = projetoVista({ mode: "peca", copies: "1", hours: "1", minutes: "0", labor: "0", colors: [] })
   const { result, texto } = textoDo(project)
   assert.equal(result.lot.total !== null, true)
-  assert.equal(texto.includes("Nenhuma cor de filamento. O material entra como R$ 0,00."), true)
+  assert.equal(texto.includes("Nenhuma cor de filamento. O material entra como R$ 0,00."), false)
 })
 
 test("texto sem nome das cores", () => {
@@ -587,4 +617,158 @@ test("lista sem copiar orcamento", () => {
   const lista = fonte("src/components/lista-projetos.tsx")
   assert.equal(lista.includes("Copiar orçamento"), false)
   assert.equal(lista.includes("ROTULO_COPIAR"), false)
+})
+
+function projetoDeProva(overrides: Partial<Project> = {}) {
+  return projetoVista({
+    name: "Suporte",
+    mode: "peca",
+    copies: "1",
+    hours: "0",
+    minutes: "0",
+    labor: "10",
+    colorMode: "unica",
+    grams: "800",
+    colors: [{ id: "a", name: "PLA preto", hex: "#111111", price: "100", grams: "800" }],
+    clientName: "Ana",
+    clientPhone: "11999990000",
+    ...overrides,
+  })
+}
+
+const prova20 = { ...prova, coefficient: "20" }
+
+test("campo coeficiente de erro", () => {
+  assert.equal(ROTULO_COEFICIENTE, "Coeficiente de erro (%)")
+  const ficha = fonte("src/components/configuracoes-form.tsx")
+  assert.match(ficha, /ROTULO_COEFICIENTE/)
+  assert.match(ficha, /id="coeficiente"/)
+})
+
+test("tabela sem linha de coeficiente", () => {
+  const calculadora = fonte("src/components/calculadora.tsx")
+  assert.equal(calculadora.includes("Coeficiente de erro (%)"), false)
+  assert.equal(calculadora.includes("Peças perdidas"), false)
+})
+
+test("lista acompanha coeficiente 20", () => {
+  const total = calculate(draftToCalcInput(projetoDeProva(), prova20)).lot.total
+  assert.equal(formatBRL(total ?? 0), formatBRL(110))
+  assert.match(fonte("src/components/lista-projetos.tsx"), /draftToCalcInput/)
+})
+
+test("lista volta ao total sem coeficiente", () => {
+  const total = calculate(draftToCalcInput(projetoDeProva(), { ...prova, coefficient: "" })).lot.total
+  assert.equal(formatBRL(total ?? 0), formatBRL(88))
+  assert.match(fonte("src/components/lista-projetos.tsx"), /draftToCalcInput/)
+})
+
+test("texto do cliente com preco 110", () => {
+  const { result, texto } = textoDo(projetoDeProva(), prova20)
+  assert.equal(podeCopiarOrcamento(result.lot.total), true)
+  assert.match(fonte("src/components/calculadora.tsx"), /ROTULO_COPIAR/)
+  assert.equal(texto.includes("Suporte"), true)
+  assert.equal(texto.includes("Cliente: Ana"), true)
+  assert.equal(texto.includes("Telefone: 11999990000"), true)
+  assert.equal(texto.includes("Total:"), true)
+  assert.equal(texto.includes(formatBRL(110)), true)
+  assert.equal(texto.includes("0 min"), true)
+})
+
+test("texto do cliente sem o custo", () => {
+  const { texto } = textoDo(projetoDeProva(), prova20)
+  for (const marca of ["Material", "Energia", "Depreciação", "Mão de obra", "Peso", "Prova:", "Coeficiente", "Peças perdidas"]) {
+    assert.equal(texto.includes(marca), false, marca)
+  }
+})
+
+test("texto por peca e lote", () => {
+  const { texto } = textoDo(
+    projetoDeProva({ mode: "lote", copies: "4" }),
+    prova20
+  )
+  assert.equal(texto.includes("Por peça"), true)
+  assert.equal(texto.includes("Lote"), true)
+  assert.equal(texto.includes(formatBRL(27.5)), true)
+  assert.equal(texto.includes(formatBRL(110)), true)
+  assert.equal(texto.includes("Total:"), false)
+})
+
+test("sem botao com coeficiente 100", () => {
+  const { result } = textoDo(projetoDeProva(), { ...prova, coefficient: "100" })
+  assert.equal(result.lot.total, null)
+  assert.equal(podeCopiarOrcamento(result.lot.total), false)
+  assert.match(fonte("src/components/calculadora.tsx"), /podeCopiarOrcamento\(result\.lot\.total\)/)
+})
+
+test("texto do lote sem por peca", () => {
+  const { texto } = textoDo(
+    projetoDeProva({ mode: "lote", copies: "0" }),
+    prova20
+  )
+  assert.equal(texto.includes(formatBRL(110)), true)
+  assert.equal(texto.includes("Por peça"), false)
+  assert.equal(texto.includes("Custo por peça bloqueado. No modo lote, cópias precisa ser maior que zero."), false)
+})
+
+test("aviso de copias fica na tela", () => {
+  const result = calculate(draftToCalcInput(projetoDeProva({ mode: "lote", copies: "0" }), prova20))
+  assert.equal(
+    notasResultado(result, "lote").includes("Custo por peça bloqueado. No modo lote, cópias precisa ser maior que zero."),
+    true
+  )
+  assert.match(fonte("src/components/calculadora.tsx"), /notasResultado/)
+})
+
+test("aviso de copias do produto fica na tela", () => {
+  const project = projetoVista({
+    copies: "0",
+    labor: "10",
+    mesas: [
+      mesa({ id: "a", hours: "0", minutes: "0", grams: "400", price: "100" }),
+      mesa({ id: "b", hours: "0", minutes: "0", grams: "400", price: "100" }),
+    ],
+  })
+  const { texto } = textoDo(project, prova20)
+  assert.equal(avisoCopiasProduto("0"), AVISO_COPIAS_PRODUTO)
+  assert.match(fonte("src/components/calculadora.tsx"), /avisoCopiasProduto/)
+  assert.equal(texto.includes(AVISO_COPIAS_PRODUTO), false)
+})
+
+test("texto sem impressora removida", () => {
+  const { texto } = textoDo(projetoDeProva(), prova20, true)
+  assert.equal(texto.includes(formatBRL(110)), true)
+  assert.equal(texto.includes(AVISO_IMPRESSORA_REMOVIDA), false)
+  assert.equal(texto.includes("Prova:"), false)
+})
+
+test("aviso de impressora removida fica na tela", () => {
+  assert.equal(
+    AVISO_IMPRESSORA_REMOVIDA,
+    "A impressora gravada neste projeto foi removida. O cálculo usa a máquina marcada agora."
+  )
+  assert.match(fonte("src/components/calculadora.tsx"), /AVISO_IMPRESSORA_REMOVIDA/)
+})
+
+test("texto fica e a lista tira o coeficiente", () => {
+  const project = projetoDeProva()
+  const copiado = textoDo(project, prova20)
+  const lista = calculate(draftToCalcInput(project, { ...prova, coefficient: "" })).lot.total
+  assert.equal(copiado.texto.includes(formatBRL(110)), true)
+  assert.equal(formatBRL(lista ?? 0), formatBRL(88))
+  assert.equal(copiado.texto.includes(formatBRL(88)), false)
+})
+
+test("texto sem aviso de nenhuma cor", () => {
+  const project = projetoDeProva({ labor: "0", grams: "0", colors: [], clientName: "", clientPhone: "" })
+  const { result, texto } = textoDo(project, prova20)
+  assert.equal(result.lot.total !== null, true)
+  assert.equal(texto.includes("Nenhuma cor de filamento. O material entra como R$ 0,00."), false)
+})
+
+test("aviso de nenhuma cor fica na tela", () => {
+  const project = projetoDeProva({ labor: "0", grams: "0", colors: [], clientName: "", clientPhone: "" })
+  const result = calculate(draftToCalcInput(project, prova20))
+  assert.equal(notasResultado(result, "peca").includes("Nenhuma cor de filamento. O material entra como R$ 0,00."), true)
+  assert.match(fonte("src/components/calculadora.tsx"), /notasResultado/)
 })

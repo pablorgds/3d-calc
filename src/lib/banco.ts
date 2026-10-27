@@ -149,7 +149,8 @@ function ehSemente(printers: PrinterStore, projects: Project[]) {
     printer[0].watts === defaultPrinter.watts &&
     printer[0].energyPrice === defaultPrinter.energyPrice &&
     printer[0].printerPrice === defaultPrinter.printerPrice &&
-    printer[0].lifeHours === defaultPrinter.lifeHours
+    printer[0].lifeHours === defaultPrinter.lifeHours &&
+    printer[0].coefficient === defaultPrinter.coefficient
   )
 }
 
@@ -281,6 +282,7 @@ async function garantirSchema(client: PoolClient) {
          energy_price text NOT NULL,
          printer_price text NOT NULL,
          life_hours text NOT NULL,
+         coefficient text NOT NULL DEFAULT '',
          posicao integer NOT NULL,
          PRIMARY KEY (conta_id, id)
        )`
@@ -324,6 +326,11 @@ async function garantirSchema(client: PoolClient) {
   await migrarCores(client)
   await firmarChaves(client)
   await migrarCliente(client)
+  await migrarCoeficiente(client)
+}
+
+async function migrarCoeficiente(client: PoolClient) {
+  await client.query("ALTER TABLE impressora ADD COLUMN IF NOT EXISTS coefficient text NOT NULL DEFAULT ''")
 }
 
 async function migrarCliente(client: PoolClient) {
@@ -374,8 +381,9 @@ async function lerImpressoras(client: PoolClient, contaId: string): Promise<Prin
     energy_price: string
     printer_price: string
     life_hours: string
+    coefficient: string
   }>(
-    "SELECT id, name, watts, energy_price, printer_price, life_hours FROM impressora WHERE conta_id = $1 ORDER BY posicao, id",
+    "SELECT id, name, watts, energy_price, printer_price, life_hours, coefficient FROM impressora WHERE conta_id = $1 ORDER BY posicao, id",
     [contaId]
   )
   const active = await client.query<{ impressora_id: string }>(
@@ -389,6 +397,7 @@ async function lerImpressoras(client: PoolClient, contaId: string): Promise<Prin
     energyPrice: row.energy_price,
     printerPrice: row.printer_price,
     lifeHours: row.life_hours,
+    coefficient: row.coefficient,
   }))
   const requested = active.rows[0]?.impressora_id ?? ""
   const activeId = list.some((printer) => printer.id === requested) ? requested : (list[0]?.id ?? defaultPrinter.id)
@@ -492,16 +501,27 @@ async function lerTudo(client: PoolClient, contaId: string) {
 async function substituirImpressoras(client: PoolClient, contaId: string, store: PrinterStore) {
   for (const [index, printer] of store.printers.entries()) {
     await client.query(
-      `INSERT INTO impressora (conta_id, id, name, watts, energy_price, printer_price, life_hours, posicao)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO impressora (conta_id, id, name, watts, energy_price, printer_price, life_hours, coefficient, posicao)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (conta_id, id) DO UPDATE SET
          name = EXCLUDED.name,
          watts = EXCLUDED.watts,
          energy_price = EXCLUDED.energy_price,
          printer_price = EXCLUDED.printer_price,
          life_hours = EXCLUDED.life_hours,
+         coefficient = EXCLUDED.coefficient,
          posicao = EXCLUDED.posicao`,
-      [contaId, printer.id, printer.name, printer.watts, printer.energyPrice, printer.printerPrice, printer.lifeHours, index]
+      [
+        contaId,
+        printer.id,
+        printer.name,
+        printer.watts,
+        printer.energyPrice,
+        printer.printerPrice,
+        printer.lifeHours,
+        printer.coefficient ?? "",
+        index,
+      ]
     )
   }
   await client.query(

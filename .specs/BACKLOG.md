@@ -64,13 +64,13 @@ A decidir quando virar plano: o refugo é um percentual sobre as gramas, ou um p
 
 ## Impressão falha
 
-A conta é a do trabalho digitado. Uma impressão que falhou no meio não entra no preço: o tempo e o filamento perdidos ficam de fora.
+Decidido em [.design/coeficiente.md](.design/coeficiente.md), em 2026-10-26. O coeficiente fica na impressora e só muda o total.
 
-Quando isto chegar, o lote pode somar essa falha — o tempo e as gramas que a máquina gastou sem entregar a peça.
+A conta é a do trabalho digitado. Uma impressão que falhou no meio não entra no preço: o tempo e o filamento perdidos ficam de fora.
 
 Fora deste item, até alguém pedir: histórico de falhas e uma taxa média calculada sozinha.
 
-A decidir quando virar plano: a falha é um acréscimo neste lote, ou um percentual fixo da impressora, aplicado em todo projeto dela.
+Decidido: o coeficiente é um número na impressora, vazio vale zero, e só o total em reais muda. O texto do cliente foi revisto no mesmo desenho. Histórico e taxa média continuam fora.
 
 ## Purge
 

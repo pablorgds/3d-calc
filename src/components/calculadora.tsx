@@ -32,6 +32,8 @@ import {
   FRASE_GRAVAR,
   FRASE_VARIAS_CORES,
   frasesCalculadora,
+  mascaraTelefone,
+  AVISO_IMPRESSORA_REMOVIDA,
   notasResultado,
   podeCopiarOrcamento,
   ROTULO_CLIENTE,
@@ -200,7 +202,7 @@ function CalculadoraEditor({
   const printer = printerStore ? activePrinterOf(printerStore) : null
   const [projectName, setProjectName] = useState(initial?.name ?? "")
   const [clientName, setClientName] = useState(initial?.clientName ?? "")
-  const [clientPhone, setClientPhone] = useState(initial?.clientPhone ?? "")
+  const [clientPhone, setClientPhone] = useState(mascaraTelefone(initial?.clientPhone ?? ""))
   const [nameError, setNameError] = useState<string | null>(null)
   const [mode, setMode] = useState<EntryMode>(initial?.mode ?? "peca")
   const [copies, setCopies] = useState(initial?.copies ?? "")
@@ -286,7 +288,7 @@ function CalculadoraEditor({
     setColors(next.colors)
     setMesas(next.mesas ?? [])
     setClientName(next.clientName)
-    setClientPhone(next.clientPhone)
+    setClientPhone(mascaraTelefone(next.clientPhone))
   }
 
   async function incluirMesa() {
@@ -446,6 +448,7 @@ function CalculadoraEditor({
   const ficha = fichaCalculadora(mesas.length > 0, mode)
 
   async function copiarOrcamento() {
+    if (!printer || !result) return
     const texto = textoOrcamento({
       lote: projectName,
       clientName,
@@ -511,7 +514,7 @@ function CalculadoraEditor({
         ) : null}
         {linkedPrinterMissing ? (
           <p className="lavagem p-3 text-sm text-muted-foreground" data-testid="impressora-ausente">
-            A impressora gravada neste projeto foi removida. O cálculo usa a máquina marcada agora.
+            {AVISO_IMPRESSORA_REMOVIDA}
           </p>
         ) : null}
 
@@ -555,8 +558,10 @@ function CalculadoraEditor({
                 <Input
                   id="telefone"
                   value={clientPhone}
-                  onChange={(event) => setClientPhone(event.target.value)}
-                  autoComplete="off"
+                  onChange={(event) => setClientPhone(mascaraTelefone(event.target.value, clientPhone))}
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="(00) 00000-0000"
                   data-testid="telefone"
                   className="h-11"
                 />

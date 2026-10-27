@@ -3,6 +3,9 @@ import test from "node:test"
 import {
   calculate,
   draftToCalcInput,
+  formatBRL,
+  formatDuration,
+  formatGrams,
   parseDecimal,
   parseInteger,
   type CalcInput,
@@ -23,6 +26,7 @@ function base(overrides: Partial<CalcInput> = {}): CalcInput {
     printerPrice: ok(1000),
     lifeHours: ok(1000),
     laborPercent: ok(20),
+    coefficient: { status: "empty" },
     colors: [
       { id: "a", name: "PLA azul", hex: "#333333", pricePerKg: ok(100), grams: ok(10) },
       { id: "b", name: "PLA branco", hex: "#eeeeee", pricePerKg: ok(50), grams: ok(20) },
@@ -279,4 +283,177 @@ test("campo vazio e texto não viram zero", () => {
   assert.deepEqual(parseDecimal("1,5"), { status: "ok", value: 1.5 })
   assert.deepEqual(parseInteger("2,5"), { status: "invalid" })
   assert.deepEqual(parseInteger("0"), { status: "ok", value: 0 })
+})
+
+function dinheiro(value: number | null) {
+  return value === null ? "—" : formatBRL(value)
+}
+
+function loteDeProva(coefficient: Field): CalcInput {
+  return {
+    mode: "peca",
+    copies: ok(1),
+    minutes: ok(0),
+    watts: ok(100),
+    energyPricePerKwh: ok(1),
+    printerPrice: ok(1000),
+    lifeHours: ok(1000),
+    laborPercent: ok(10),
+    coefficient,
+    colors: [{ id: "a", name: "PLA", hex: "#111111", pricePerKg: ok(100), grams: ok(800) }],
+  }
+}
+
+test("coeficiente vazio mantem a soma", () => {
+  const result = calculate(loteDeProva({ status: "empty" }))
+  assert.equal(dinheiro(result.piece.total), formatBRL(88))
+  assert.equal(dinheiro(result.lot.total), formatBRL(88))
+  assert.equal(dinheiro(result.piece.material), formatBRL(80))
+  assert.equal(dinheiro(result.piece.labor), formatBRL(8))
+  assert.equal(formatDuration(result.piece.minutes ?? 0), "0 min")
+})
+
+test("coeficiente 20 leva o total a 110", () => {
+  const result = calculate(loteDeProva(ok(20)))
+  assert.equal(dinheiro(result.piece.total), formatBRL(110))
+  assert.equal(dinheiro(result.lot.total), formatBRL(110))
+  assert.equal(dinheiro(result.piece.material), formatBRL(80))
+  assert.equal(dinheiro(result.lot.material), formatBRL(80))
+  assert.equal(dinheiro(result.piece.labor), formatBRL(8))
+  assert.equal(formatGrams(result.piece.grams ?? 0), formatGrams(800))
+  assert.equal(formatDuration(result.piece.minutes ?? 0), "0 min")
+  assert.equal(formatDuration(result.lot.minutes ?? 0), "0 min")
+})
+
+test("coeficiente zero igual ao vazio", () => {
+  const result = calculate(loteDeProva(ok(0)))
+  assert.equal(dinheiro(result.piece.total), formatBRL(88))
+  assert.equal(dinheiro(result.lot.total), formatBRL(88))
+})
+
+test("coeficiente 99 leva o total a 8800", () => {
+  const result = calculate(loteDeProva(ok(99)))
+  assert.equal(dinheiro(result.piece.total), formatBRL(8800))
+  assert.equal(dinheiro(result.lot.total), formatBRL(8800))
+})
+
+test("coeficiente 99,9 leva o total a 88000", () => {
+  const result = calculate(loteDeProva(parseDecimal("99,9")))
+  assert.equal(dinheiro(result.piece.total), formatBRL(88000))
+  assert.equal(dinheiro(result.lot.total), formatBRL(88000))
+})
+
+test("coeficiente 100 deixa o total sem fechar", () => {
+  const result = calculate(loteDeProva(ok(100)))
+  assert.equal(dinheiro(result.piece.total), "—")
+  assert.equal(dinheiro(result.lot.total), "—")
+  assert.equal(dinheiro(result.piece.material), formatBRL(80))
+})
+
+test("coeficiente 101 deixa o total sem fechar", () => {
+  const result = calculate(loteDeProva(ok(101)))
+  assert.equal(dinheiro(result.piece.total), "—")
+  assert.equal(dinheiro(result.lot.total), "—")
+})
+
+test("coeficiente abc deixa o total sem fechar", () => {
+  const result = calculate(loteDeProva({ status: "invalid" }))
+  assert.equal(dinheiro(result.piece.total), "—")
+  assert.equal(dinheiro(result.lot.total), "—")
+})
+
+test("coeficiente so espaco vale zero", () => {
+  const result = calculate(loteDeProva(parseDecimal("   ")))
+  assert.equal(dinheiro(result.piece.total), formatBRL(88))
+  assert.equal(dinheiro(result.lot.total), formatBRL(88))
+})
+
+test("lote de 4 copia as linhas e o coeficiente so no total", () => {
+  const result = calculate(
+    loteDeProva(ok(20))
+  )
+  const lote = calculate({
+    ...loteDeProva(ok(20)),
+    mode: "lote",
+    copies: ok(4),
+  })
+  assert.equal(dinheiro(lote.piece.total), formatBRL(27.5))
+  assert.equal(dinheiro(lote.lot.total), formatBRL(110))
+  assert.equal(dinheiro(lote.piece.material), formatBRL(20))
+  assert.equal(dinheiro(lote.lot.material), formatBRL(80))
+  assert.equal(dinheiro(lote.piece.labor), formatBRL(2))
+  assert.equal(dinheiro(lote.lot.labor), formatBRL(8))
+  assert.equal(result.piece.total, 110)
+})
+
+test("mesas com coeficiente 20", () => {
+  const chapaProva = (id: string): MesaDraft => ({
+    id,
+    hours: "0",
+    minutes: "0",
+    name: "PLA",
+    hex: "#111111",
+    price: "100",
+    grams: "400",
+  })
+  const result = calculate(
+    draftToCalcInput(
+      {
+        mode: "peca",
+        copies: "2",
+        hours: "",
+        minutes: "",
+        labor: "10",
+        colorMode: "unica",
+        grams: "",
+        colors: [],
+        mesas: [chapaProva("a"), chapaProva("b")],
+      },
+      { watts: "100", energyPrice: "1", printerPrice: "1000", lifeHours: "1000", coefficient: "20" }
+    )
+  )
+  assert.equal(dinheiro(result.piece.material), formatBRL(80))
+  assert.equal(dinheiro(result.lot.material), formatBRL(160))
+  assert.equal(dinheiro(result.piece.labor), formatBRL(8))
+  assert.equal(dinheiro(result.lot.labor), formatBRL(16))
+  assert.equal(dinheiro(result.piece.total), formatBRL(110))
+  assert.equal(dinheiro(result.lot.total), formatBRL(220))
+})
+
+test("mesas sem copias fecham a peca", () => {
+  const chapaProva = (id: string): MesaDraft => ({
+    id,
+    hours: "0",
+    minutes: "0",
+    name: "PLA",
+    hex: "#111111",
+    price: "100",
+    grams: "400",
+  })
+  const result = calculate(
+    draftToCalcInput(
+      {
+        mode: "peca",
+        copies: "0",
+        hours: "",
+        minutes: "",
+        labor: "10",
+        colorMode: "unica",
+        grams: "",
+        colors: [],
+        mesas: [chapaProva("a"), chapaProva("b")],
+      },
+      { watts: "100", energyPrice: "1", printerPrice: "1000", lifeHours: "1000", coefficient: "20" }
+    )
+  )
+  assert.equal(dinheiro(result.piece.total), formatBRL(110))
+  assert.equal(dinheiro(result.lot.total), "—")
+})
+
+test("mao de obra vazia nao fecha com coeficiente", () => {
+  const result = calculate(loteDeProva(ok(20)))
+  const sem = calculate({ ...loteDeProva(ok(20)), laborPercent: { status: "empty" } })
+  assert.equal(dinheiro(result.piece.total), formatBRL(110))
+  assert.equal(dinheiro(sem.piece.total), "—")
+  assert.equal(dinheiro(sem.lot.total), "—")
 })

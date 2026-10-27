@@ -33,6 +33,7 @@ export type CalcInput = {
   printerPrice: Field
   lifeHours: Field
   laborPercent: Field
+  coefficient: Field
   colors: ColorInput[]
   mesas?: MesaInput[]
 }
@@ -211,6 +212,8 @@ function calculateMesas(input: CalcInput): CalcResult {
       lot.labor = labor === null ? null : labor * fator
       lot.total = total === null ? null : total * fator
     }
+    piece.total = totalComCoeficiente(piece.total, input.coefficient)
+    lot.total = totalComCoeficiente(lot.total, input.coefficient)
   }
 
   return {
@@ -328,6 +331,9 @@ export function calculate(input: CalcInput): CalcResult {
     lot[key] = lotBlocked ? null : scaled.lot
   }
 
+  if (!pieceBlocked) piece.total = totalComCoeficiente(piece.total, input.coefficient)
+  if (!lotBlocked) lot.total = totalComCoeficiente(lot.total, input.coefficient)
+
   return {
     piece,
     lot,
@@ -420,9 +426,16 @@ export function errosAoGravar(draft: JobDraft): Record<string, string> {
   return issues
 }
 
+function totalComCoeficiente(total: Amount, coefficient: Field): Amount {
+  if (total === null) return null
+  if (coefficient.status === "empty") return total
+  if (coefficient.status !== "ok" || coefficient.value >= 100) return null
+  return total * (100 / (100 - coefficient.value))
+}
+
 export function draftToCalcInput(
   draft: JobDraft,
-  printer: { watts: string; energyPrice: string; printerPrice: string; lifeHours: string }
+  printer: { watts: string; energyPrice: string; printerPrice: string; lifeHours: string; coefficient?: string }
 ): CalcInput {
   const mesas = (draft.mesas ?? []).map((mesa) => ({
     id: mesa.id,
@@ -441,6 +454,7 @@ export function draftToCalcInput(
     printerPrice: parseDecimal(printer.printerPrice),
     lifeHours: parseDecimal(printer.lifeHours),
     laborPercent: parseDecimal(draft.labor),
+    coefficient: parseDecimal(printer.coefficient ?? ""),
     colors: mesas.length > 0 ? [] : coresParaConta(draft),
     mesas,
   }

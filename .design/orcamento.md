@@ -2,6 +2,7 @@
 
 > Planeje a partir deste documento. Cada fatia abaixo carrega a própria forma — copie, não redesenhe.
 > Status: confirmado pelo dono, 2026-10-26
+> O conteúdo do texto copiado foi revisto em `.design/coeficiente.md` (dono, 2026-10-26). Cliente e telefone continuam neste documento.
 
 ## Situation
 
@@ -45,7 +46,7 @@ O cliente é o nome e o telefone no projeto. Copiar o orçamento lê a calculado
 
 3. **O orçamento não é um registro.** É uma leitura da calculadora na hora da cópia, com a impressora que essa tela usa. O projeto continua sem total. A lista continua recalculando com a tarifa atual. O texto já copiado fica como saiu.
 
-4. **Não há orçamento quando o total do lote não fecha.** Lote em branco não é preço para passar. Se o lote fecha e a peça não, o texto leva o lote e o aviso que a tela já mostra para a peça.
+4. **Não há orçamento quando o total do lote não fecha.** Lote em branco não é preço para passar. Se o lote fecha e a peça não, o que o texto leva está em `.design/coeficiente.md`.
 
 5. **Projeto já gravado nasce com cliente vazio até o dono digitar.** Carga sem os dois campos é esse cliente vazio. Cores, mesas, tempo e impressora não são reescritos.
 
@@ -89,11 +90,11 @@ Alternatives considered: máscara de telefone — ganha se o app for discar o n�
 
 | State | What should happen | Caller sees |
 |---|---|---|
-| O total do lote fecha | Decisão 3. O texto leva o nome do lote, o cliente quando o recorte não é vazio, a linha da impressora que a tela já mostra, peça e lote, material, energia, depreciação, mão de obra e peso | O clipboard com esse texto. O botão diz “Copiar orçamento” |
+| O total do lote fecha | Decisão 3. O que o texto leva está em `.design/coeficiente.md` | O clipboard com esse texto. O botão diz “Copiar orçamento” |
 | O total do lote não fecha | Decisão 4. Nada é copiado | O resultado como está, sem cópia |
-| A peça não fecha e o lote fecha | Decisão 4 | O texto tem o lote e o aviso que a tela já mostra para a peça. O valor da peça fica de fora |
+| A peça não fecha e o lote fecha | O que o texto leva está em `.design/coeficiente.md` | O valor da peça fica de fora |
 | Cliente vazio depois do recorte | As linhas do cliente ficam de fora | Os totais ainda copiam |
-| A impressora do projeto foi removida | O texto usa a impressora marcada, como a tela | O aviso que a tela já mostra entra no texto |
+| A impressora do projeto foi removida | O cálculo usa a impressora marcada, como a tela | O aviso fica na tela. O texto não leva a impressora — `.design/coeficiente.md` |
 | A cópia não chega ao clipboard | O texto é o mesmo | O texto fica na tela para selecionar |
 | A tela difere da última gravação | O texto segue a tela | O projeto gravado só muda ao gravar |
 

@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { NumberField } from "@/components/number-field"
 import { addPrinter, removePrinter, setActivePrinter, updatePrinterById, useLeitura } from "@/lib/impressora"
 import { activePrinterOf } from "@/lib/impressora-store"
-import { vistaCarregamento } from "@/lib/vistas"
+import { ROTULO_COEFICIENTE, vistaCarregamento } from "@/lib/vistas"
 
 export function ConfiguracoesForm() {
   const leitura = useLeitura()
@@ -142,6 +142,15 @@ export function ConfiguracoesForm() {
             placeholder="3000"
             when="blur"
             testId="vida-util"
+          />
+          <NumberField
+            id="coeficiente"
+            label={ROTULO_COEFICIENTE}
+            value={active.coefficient}
+            onChange={(coefficient) => updatePrinterById(active.id, { coefficient })}
+            placeholder="0"
+            when="blur"
+            testId="coeficiente"
           />
           {store.printers.length > 1 ? (
             <Button

@@ -163,6 +163,7 @@ test.describe("banco", { concurrency: 1 }, () => {
         await client.query("DROP TRIGGER IF EXISTS rejeita_cliente ON projeto")
         await client.query("DROP TRIGGER IF EXISTS rejeita_mesa ON mesa")
         await client.query("DROP TRIGGER IF EXISTS rejeita_conta_nova ON impressora")
+        await client.query("DROP TRIGGER IF EXISTS rejeita_coeficiente ON impressora")
         await client.query("TRUNCATE sessao, impressora_ativa, cor, mesa, projeto, impressora, conta")
       }
     } finally {
@@ -375,7 +376,7 @@ test.describe("banco", { concurrency: 1 }, () => {
     ok(await bancoProva().ler())
     const loja: PrinterStore = {
       activeId: "ender",
-      printers: [{ id: "ender", name: "Ender", watts: "9", energyPrice: "8", printerPrice: "7", lifeHours: "6" }],
+      printers: [{ id: "ender", name: "Ender", watts: "9", energyPrice: "8", printerPrice: "7", lifeHours: "6", coefficient: "" }],
     }
     const lido = ok(await bancoProva().ler({ impressora: serializePrinterStore(loja), projetos: null }))
     assert.equal(lido.printers.activeId, "ender")
@@ -387,7 +388,7 @@ test.describe("banco", { concurrency: 1 }, () => {
     ok(await bancoProva().ler())
     const loja: PrinterStore = {
       activeId: "ender",
-      printers: [{ id: "ender", name: "Ender", watts: "9", energyPrice: "8", printerPrice: "7", lifeHours: "6" }],
+      printers: [{ id: "ender", name: "Ender", watts: "9", energyPrice: "8", printerPrice: "7", lifeHours: "6", coefficient: "" }],
     }
     const lido = ok(
       await bancoProva().ler({
@@ -419,7 +420,7 @@ $$`)
     )
     const loja: PrinterStore = {
       activeId: "outra",
-      printers: [{ id: "outra", name: "Outra", watts: "1", energyPrice: "2", printerPrice: "3", lifeHours: "4" }],
+      printers: [{ id: "outra", name: "Outra", watts: "1", energyPrice: "2", printerPrice: "3", lifeHours: "4", coefficient: "" }],
     }
     ok(
       await banco.ler({
@@ -452,7 +453,7 @@ $$`)
     ok(await banco.atualizarImpressora("k2-pro", { name: "Editada" }))
     const loja: PrinterStore = {
       activeId: "x",
-      printers: [{ id: "x", name: "Outra", watts: "1", energyPrice: "1", printerPrice: "1", lifeHours: "1" }],
+      printers: [{ id: "x", name: "Outra", watts: "1", energyPrice: "1", printerPrice: "1", lifeHours: "1", coefficient: "" }],
     }
     const lido = ok(
       await banco.ler({
@@ -1854,5 +1855,93 @@ $$`)
       ["p1"]
     )
     assert.equal(lido.projects[0]?.updatedAt, 20)
+  })
+
+  test("grava coeficiente 20", async () => {
+    ok(await bancoProva().atualizarImpressora("k2-pro", { name: "Prova", coefficient: "20" }))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.printers.printers.find((item) => item.name === "Prova")?.coefficient, "20")
+  })
+
+  test("grava coeficiente vazio", async () => {
+    ok(await bancoProva().atualizarImpressora("k2-pro", { name: "Prova", coefficient: "20" }))
+    ok(await bancoProva().atualizarImpressora("k2-pro", { coefficient: "" }))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.printers.printers[0]?.coefficient, "")
+  })
+
+  test("coeficiente com espaco", async () => {
+    ok(await bancoProva().atualizarImpressora("k2-pro", { name: "Prova", coefficient: " 20 " }))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.printers.printers[0]?.coefficient, " 20 ")
+  })
+
+  test("grava coeficiente 100", async () => {
+    ok(await bancoProva().atualizarImpressora("k2-pro", { name: "Prova", coefficient: "100" }))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.printers.printers[0]?.coefficient, "100")
+  })
+
+  test("grava coeficiente abc", async () => {
+    ok(await bancoProva().atualizarImpressora("k2-pro", { name: "Prova", coefficient: "abc" }))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.printers.printers[0]?.coefficient, "abc")
+  })
+
+  test("impressora antiga le coeficiente vazio", async () => {
+    ok(await bancoProva().ler())
+    await sql("ALTER TABLE impressora DROP COLUMN coefficient")
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.printers.printers.find((item) => item.id === "k2-pro")?.coefficient, "")
+  })
+
+  test("impressora nova nasce sem coeficiente", async () => {
+    ok(await bancoProva().adicionarImpressora("ender"))
+    const lido = ok(await bancoProva().ler())
+    const nova = lido.printers.printers.find((item) => item.id === "ender")
+    assert.equal(nova?.name, "Nova impressora")
+    assert.equal(nova?.coefficient, "")
+  })
+
+  test("semente k2 sem coeficiente", async () => {
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.printers.printers.find((item) => item.id === "k2-pro")?.coefficient, "")
+  })
+
+  test("coeficiente nao vaza para outra conta", async () => {
+    const outra = await abrirBanco(url).criarConta("outra@example.com", "senha-oito")
+    assert.equal(outra.status, "criada")
+    if (outra.status !== "criada") return
+    ok(await comConta(contaIdProva, () => abrirBanco(url).atualizarImpressora("k2-pro", { coefficient: "20" })))
+    const minha = ok(await bancoProva().ler())
+    assert.equal(minha.printers.printers.find((item) => item.id === "k2-pro")?.coefficient, "20")
+    const lido = ok(await comConta(outra.id, () => abrirBanco(url).ler()))
+    assert.equal(lido.printers.printers.find((item) => item.id === "k2-pro")?.coefficient, "")
+  })
+
+  test("falha ao gravar coeficiente volta vazio", async () => {
+    ok(await bancoProva().ler())
+    await sql(`CREATE OR REPLACE FUNCTION rejeita_coeficiente() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'falha coeficiente';
+END;
+$$`)
+    await sql("CREATE TRIGGER rejeita_coeficiente BEFORE UPDATE ON impressora FOR EACH ROW EXECUTE FUNCTION rejeita_coeficiente()")
+    await assert.rejects(bancoProva().atualizarImpressora("k2-pro", { coefficient: "20" }))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.printers.printers.find((item) => item.id === "k2-pro")?.coefficient, "")
+  })
+
+  test("coluna coefficient no schema", async () => {
+    ok(await bancoProva().ler())
+    const colunas = await sql<{ column_name: string; data_type: string; is_nullable: string; column_default: string | null }>(
+      `SELECT column_name, data_type, is_nullable, column_default
+       FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'impressora' AND column_name = 'coefficient'`
+    )
+    assert.equal(colunas.rows[0]?.column_name, "coefficient")
+    assert.equal(colunas.rows[0]?.data_type, "text")
+    assert.equal(colunas.rows[0]?.is_nullable, "NO")
+    assert.match(colunas.rows[0]?.column_default ?? "", /''/)
   })
 })

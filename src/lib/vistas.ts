@@ -45,6 +45,7 @@ export const FRASE_VARIAS_CORES = "Esta impressão tem várias cores num tempo s
 export const AVISO_COPIAS_PRODUTO =
   "Custo do lote bloqueado. Cópias do produto precisa ser um inteiro maior que zero."
 export const ROTULO_MAO_DE_OBRA = "Mão de obra (%)"
+export const ROTULO_COEFICIENTE = "Coeficiente de erro (%)"
 export const LEGENDA_LOTE = "lote, tarifa atual"
 
 export function avisoCopiasProduto(copies: string): string | null {
@@ -103,6 +104,16 @@ export function frasesCalculadora(situacao: "ausente" | "gravado" | "novo") {
 export const ROTULO_CLIENTE = "Cliente"
 export const ROTULO_TELEFONE = "Telefone"
 export const ROTULO_COPIAR = "Copiar orçamento"
+
+export function mascaraTelefone(valor: string, anterior = "") {
+  const digitos = valor.replace(/\D/g, "").slice(0, 11)
+  const anteriores = anterior.replace(/\D/g, "").slice(0, 11)
+  const usados = valor.length < anterior.length && digitos === anteriores ? digitos.slice(0, -1) : digitos
+  if (usados.length === 0) return ""
+  if (usados.length <= 2) return `(${usados}`
+  if (usados.length <= 7) return `(${usados.slice(0, 2)}) ${usados.slice(2)}`
+  return `(${usados.slice(0, 2)}) ${usados.slice(2, 7)}-${usados.slice(7)}`
+}
 export const AVISO_IMPRESSORA_REMOVIDA =
   "A impressora gravada neste projeto foi removida. O cálculo usa a máquina marcada agora."
 
@@ -184,8 +195,23 @@ function valorLado(value: Amount, kind: "money" | "time" | "grams") {
   return formatGrams(value)
 }
 
-function linhaLado(piece: Amount, lot: Amount, kind: "money" | "time" | "grams") {
-  return [valorLado(piece, kind), valorLado(lot, kind)].filter((parte): parte is string => parte !== null).join(" · ")
+function linhaRotulo(rotulo: string, corpo: string) {
+  return `*${rotulo}: ${corpo}*`
+}
+
+function linhaResumo(rotulo: string, money: Amount, minutes: Amount) {
+  const valor = valorLado(money, "money")
+  const tempo = valorLado(minutes, "time")
+  const corpo = [valor, tempo].filter((parte): parte is string => parte !== null).join(" · ")
+  if (!corpo) return ""
+  return linhaRotulo(rotulo, corpo)
+}
+
+function juntarBlocos(blocos: string[][]) {
+  return blocos
+    .map((linhas) => linhas.filter((linha) => linha !== "").join("\n"))
+    .filter((bloco) => bloco !== "")
+    .join("\n\n")
 }
 
 export function textoOrcamento(input: {
@@ -197,31 +223,22 @@ export function textoOrcamento(input: {
   mode: EntryMode
   result: CalcResult
 }) {
-  const linhas = [input.lote.trim() || "Sem nome"]
+  const peca = input.result.piece
+  const lote = input.result.lot
   const cliente = input.clientName.trim()
   const telefone = input.clientPhone.trim()
-  if (cliente) linhas.push(`Cliente: ${cliente}`)
-  if (telefone) linhas.push(`Telefone: ${telefone}`)
-  if (input.impressoraRemovida) linhas.push(AVISO_IMPRESSORA_REMOVIDA)
-  linhas.push(linhaImpressora(input.printer))
-  if (input.result.piece.total !== null) {
-    linhas.push("Por peça")
-    linhas.push(linhaLado(input.result.piece.total, null, "money"))
-    linhas.push(linhaLado(input.result.piece.minutes, null, "time"))
-  }
-  linhas.push("Lote")
-  linhas.push(linhaLado(null, input.result.lot.total, "money"))
-  linhas.push(linhaLado(null, input.result.lot.minutes, "time"))
-  linhas.push("Material")
-  linhas.push(linhaLado(input.result.piece.material, input.result.lot.material, "money"))
-  linhas.push("Energia")
-  linhas.push(linhaLado(input.result.piece.energy, input.result.lot.energy, "money"))
-  linhas.push("Depreciação")
-  linhas.push(linhaLado(input.result.piece.depreciation, input.result.lot.depreciation, "money"))
-  linhas.push("Mão de obra")
-  linhas.push(linhaLado(input.result.piece.labor, input.result.lot.labor, "money"))
-  linhas.push("Peso")
-  linhas.push(linhaLado(input.result.piece.grams, input.result.lot.grams, "grams"))
-  linhas.push(...notasResultado(input.result, input.mode))
-  return linhas.filter((linha) => linha !== "").join("\n")
+  const dinheiroIgual = valorLado(peca.total, "money") !== null && valorLado(peca.total, "money") === valorLado(lote.total, "money")
+  const tempoIgual = valorLado(peca.minutes, "time") === valorLado(lote.minutes, "time")
+  const totais =
+    dinheiroIgual && tempoIgual
+      ? [linhaResumo("Total", lote.total, lote.minutes)]
+      : [peca.total === null ? "" : linhaResumo("Por peça", peca.total, peca.minutes), linhaResumo("Lote", lote.total, lote.minutes)]
+  return juntarBlocos([
+    [
+      `*${input.lote.trim() || "Sem nome"}*`,
+      cliente ? linhaRotulo("Cliente", cliente) : "",
+      telefone ? linhaRotulo("Telefone", telefone) : "",
+    ],
+    totais,
+  ])
 }
