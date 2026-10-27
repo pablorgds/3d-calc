@@ -18,9 +18,9 @@
 ## Handoff
 
 **Feature**: coeficiente
-**Where**: C1–C47 closed at `9ea2f96ab972c74a4f2020e27ddf6fef3ea8ea49`. Proofs green in `src/lib/custo.test.ts`, `src/lib/vistas.test.ts`, `src/lib/impressora-store.test.ts` and `src/lib/banco.test.ts`.
-**In progress**: verification
-**Next step**: independent verifier over that commit, then `validate_verification.py coeficiente`
+**Where**: C1–C47 closed at `9ea2f96ab972c74a4f2020e27ddf6fef3ea8ea49`. Verifier PASS. `validate_verification.py coeficiente` exited 0.
+**In progress**: none
+**Next step**: the owner reviews the first quote with coefficient `20` after the app on port 4317 is rebuilt. The process there is still the previous image.
 **Blockers**: none
-**Uncommitted**: this handoff. `compose.yaml` `ORIGEM_PUBLICA` stays out of the feature.
+**Uncommitted**: `compose.yaml` `ORIGEM_PUBLICA` stays out of the feature.
 **Branch**: main
