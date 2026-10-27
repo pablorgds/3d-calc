@@ -13,13 +13,14 @@
 | AD-007 | The `sessao` cookie is `Secure` only when the request host, port removed and lowercased, equals `ORIGEM_PUBLICA`. Any other host, and an empty `ORIGEM_PUBLICA`, omit `Secure`. Clearing the cookie uses the same bit. | Tailscale Funnel terminates TLS and proxies HTTP to 127.0.0.1:4317, preserving the public Host. The socket scheme is HTTP for the house and for the public name, so it cannot choose `Secure`. The owner confirmed `.design/url-publica.md` on 2026-10-08. | active | 2026-10-08 |
 | AD-008 | The public name is Tailscale Funnel to 127.0.0.1:4317. The node name is `calculadora`. Postgres has no host port. The router does not forward 4317. The process on 4317 is the built app. A new conta is only admin `incluir` on `/usuarios`. | The owner confirmed `.design/url-publica.md` on 2026-10-08: no purchased domain, this PC when it is on, no public signup. | active | 2026-10-08 |
 | AD-009 | The client is the name and phone stored on `projeto`, both empty text allowed. There is no `cliente` table. A later feature must not add a shared client row unless the owner asks for one phone that changes in one place across lotes. The orçamento is a reading of the calculator and `projeto` stores no total. | The owner confirmed `.design/orcamento.md` on 2026-10-26. A shared client, or a total column, would freeze or fan out data the list still recomputes from the printer tariff. | active | 2026-10-26 |
+| AD-010 | The coeficiente is text on `impressora`, empty meaning zero. It scales only the money total of peça and lote: the closed sum divided by (1 − coefficient/100). Material, energy, depreciation, labor, minutes and grams stay unscaled. A later feature that adds cost adds it to that sum before the coefficient, and must not scale the displayed lines or store the total on `projeto`. | The owner confirmed `.design/coeficiente.md` on 2026-10-26. Scaling the lines would make material stop being grams times price. A coefficient on `projeto` would stop the list from following the printer. | active | 2026-10-27 |
 
 ## Handoff
 
-**Feature**: orcamento
-**Where**: C1–C28 verified PASS, profile light, in `.specs/features/orcamento/verification.md`.
-**In progress**: none
-**Next step**: none for this feature
+**Feature**: coeficiente
+**Where**: C1–C47 closed at `9ea2f96ab972c74a4f2020e27ddf6fef3ea8ea49`. Proofs green in `src/lib/custo.test.ts`, `src/lib/vistas.test.ts`, `src/lib/impressora-store.test.ts` and `src/lib/banco.test.ts`.
+**In progress**: verification
+**Next step**: independent verifier over that commit, then `validate_verification.py coeficiente`
 **Blockers**: none
-**Uncommitted**: `compose.yaml` has an unrelated `ORIGEM_PUBLICA` line and stays out.
+**Uncommitted**: this handoff. `compose.yaml` `ORIGEM_PUBLICA` stays out of the feature.
 **Branch**: main

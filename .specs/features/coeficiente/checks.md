@@ -246,3 +246,6 @@ Status: done
 - S2 acrescenta `vistas.ts` (11637) + `vistas.test.ts` (25188) = 36825 bytes / 4 = 9206; `calculadora.tsx` já entrou em S1
 - Total 62496, abaixo do orçamento de 150k — one builder
 - Mechanism: one builder
+- **Boundary:** C1–C47 closed at 9ea2f96ab972c74a4f2020e27ddf6fef3ea8ea49
+- **Settled mid-build:** none
+- **Abandoned:** none
