@@ -162,6 +162,26 @@ export function persistirNumeroNoEvento(when: "live" | "blur" | "reported", even
   return evento === "change"
 }
 
+export function persistirTextoNoEvento(evento: "change" | "blur") {
+  return evento === "blur"
+}
+
+export function criarRevisaoDeGravacao() {
+  let revisao = 0
+  return {
+    tocar() {
+      revisao += 1
+      return revisao
+    },
+    atual() {
+      return revisao
+    },
+    aceitar(vista: number) {
+      return vista === revisao
+    },
+  }
+}
+
 export function criarOrdemDeAtualizacao() {
   const porId = new Map<string, { atual: number; aplicada: number }>()
   function slot(id: string) {
