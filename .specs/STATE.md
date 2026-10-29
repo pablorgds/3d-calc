@@ -18,9 +18,9 @@
 ## Handoff
 
 **Feature**: ux-calculadora
-**Where**: Builder C1–C16 proofs green at `d1cc981ffb52cf9736a55524d94df4ea011eedf9`. Independent verifier **FAIL** on C10 (check text vs named proof). Report: `.specs/features/ux-calculadora/verification.md`. `validate_verification.py` exit 1.
+**Where**: C1–C16 PASS. Check wording C10 at `cef6d22`. Fresh verifier round 2 at `329ed29`. `validate_verification.py ux-calculadora` exit 0.
 **In progress**: none
-**Next step**: owner aligns C10. Check text says `textoAposCopia(false, texto)` returns the fallback; the named proof and helper treat the first arg as `falhou` (`true` → text, `false` → null). AC 10 (clipboard fail shows text, never Copiado) matches the helper. Do not invert `textoAposCopia`.
-**Blockers**: C10 wording vs proof — owner decision
-**Uncommitted**: verification.md (this commit)
+**Next step**: owner reviews https://github.com/pablorgds/3d-calc/pull/1
+**Blockers**: none
+**Uncommitted**: none
 **Branch**: cursor/ux-calculadora-ac85
