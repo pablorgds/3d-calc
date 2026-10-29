@@ -13,69 +13,91 @@ A impressora dos números, quando o check não disser outra, é 100 W, R$ 1/kWh,
 
 **C1** - Purge `30` na impressão de prova: preto 1.6, branco 4.8, vermelho 3.5, material 9.9, gramas 35 (AC 1, door 2)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "purge 30 fecha material 9,90"`
+Status: done
 
 **C2** - Purge `''` na impressão de prova: material 3.3, gramas 35 (AC 2)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "purge vazio fecha material 3,30"`
+Status: done
 
 **C3** - Purge `0` na impressão de prova: material 3.3, gramas 35 (AC 3)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "purge zero fecha material 3,30"`
+Status: done
 
 **C4** - Purge `   ` na impressão de prova: material 3.3, gramas 35 (AC 4)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "purge so espacos fecha material 3,30"`
+Status: done
 
 **C5** - Várias cores, só preto 20 g a R$ 80/kg e purge `30`: material 1.6, gramas 20 (AC 5)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "uma cor nao paga o purge"`
+Status: done
 
 **C6** - Ordem vermelho 5 g a R$ 100/kg, branco 10 g a R$ 120/kg, preto 20 g a R$ 80/kg, purge `30`: linhas 0.5, 4.8 e 4, material 9.3 (AC 6)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "ordem invertida muda quem paga o purge"`
+Status: done
 
 **C7** - Duas cores nomeadas `PLA preto`, 20 g a R$ 80/kg e 10 g a R$ 120/kg, purge `30`: linhas 1.6 e 4.8, material 6.4, gramas 30 (AC 7)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "mesmo nome sao duas cores no purge"`
+Status: done
 
 **C8** - Purge `30,5` na impressão de prova: branco 4.86, vermelho 3.55, material 10.01 (AC 8)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "purge 30,5 nas linhas"`
+Status: done
 
 **C9** - Purge `abc` na impressão de prova: material, mão de obra, total da peça e total do lote são `null` (AC 9)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "purge abc anula material mao e totais"`
+Status: done
 
 **C10** - Purge `-1` na impressão de prova: material `null` (AC 10)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "purge negativo anula o material"`
+Status: done
 
 **C11** - Gramas do preto `''` e purge `30`: material `null` (AC 11)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "peso vazio anula antes do purge"`
+Status: done
 
 **C12** - Sem cores e purge `''`: material 0 (AC 12)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "sem cores e purge vazio da material 0"`
+Status: done
 
 **C13** - Sem cores e purge `30`: material 0 (AC 13)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "sem cores e purge 30 da material 0"`
+Status: done
 
 **C14** - Sem cores e purge `abc`: material `null` (AC 14)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "sem cores e purge abc anula o material"`
+Status: done
 
 **C15** - `color_mode` `unica`, gramas `800`, preço `100`, purge `30`: material 80, gramas 800 (AC 15)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "cor unica ignora purge 30"`
+Status: done
 
 **C16** - Uma mesa de 0 h, 0 min, 1000 g a preço `100`, mão de obra `0`, cópias `1`, purge `30`: material da peça 100, gramas 1000, total 100 (AC 16)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "mesa ignora purge 30"`
+Status: done
 
 **C17** - Impressão de prova com purge `30` e mão de obra `10`: material 9.9, mão de obra 0.99, gramas 35, total 10.89 (AC 17)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "mao de obra 10 inclui o purge"`
+Status: done
 
 **C18** - A entrada de C17 com 60 min: energia 0.1, depreciação 1, mão de obra 1.1, material 9.9 (AC 18)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "sessenta min com purge 30"`
+Status: done
 
 **C19** - Impressão de prova com purge `30`, mão de obra `0` e coeficiente `20`: material 9.9, mão de obra 0, gramas 35, total 12.375 (AC 19)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "coeficiente 20 nao escala as linhas do purge"`
+Status: done
 
 **C20** - Modo `lote`, cópias `2`, mão de obra `0`, purge `30`: material do lote 9.9, da peça 4.95, gramas 35 e 17.5, linhas 1.6, 4.8 e 3.5 (AC 20)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "lote de 2 copias escala o purge"`
+Status: done
 
 **C21** - Modo `lote`, cópias `0`, mão de obra `0`, purge `30`: total da peça `null`, material do lote 9.9, gramas do lote 35 (AC 21)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "lote de 0 copias mantem o purge"`
+Status: done
 
 **C22** - Purge `abc`, 60 min e as três cores fechadas: energia 0.1, depreciação 1, material `null`, mão de obra `null` (AC 22)
 Proof: `node --experimental-strip-types --test src/lib/custo.test.ts --test-name-pattern "purge abc mantem energia e depreciacao"`
+Status: done
 
 ### S2 - Campo, gravação e cópia · 8 files · 217 KB · ~55k
 
