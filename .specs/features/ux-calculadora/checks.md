@@ -49,7 +49,7 @@ Status: done
 Proof: `node --experimental-strip-types --test --test-name-pattern "rotulo copiar orcamento" src/lib/vistas.test.ts`
 Status: done
 
-**C10** - Helper `textoAposCopia(false, texto)` continua devolvendo o texto para seleção e nao marca cópia bem-sucedida (AC 10)
+**C10** - Helper `textoAposCopia(true, texto)` devolve o texto para seleção quando a cópia falha (`falhou`) e nao marca cópia bem-sucedida (AC 10)
 Proof: `node --experimental-strip-types --test --test-name-pattern "copia falha mostra o texto" src/lib/vistas.test.ts`
 Status: done
 
