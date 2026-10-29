@@ -69,6 +69,7 @@ function projeto(overrides: Partial<Project> = {}): Project {
     mesas: [],
     clientName: "",
     clientPhone: "",
+    purge: "",
     updatedAt: 10,
     ...overrides,
   }
@@ -1192,7 +1193,7 @@ $$`)
     )
     assert.deepEqual(
       projetoCols.rows.map((row) => row.column_name).sort(),
-      ["color_mode", "conta_id", "copies", "client_name", "client_phone", "grams", "hours", "id", "labor", "minutes", "mode", "name", "printer_id", "updated_at"].sort()
+      ["color_mode", "conta_id", "copies", "client_name", "client_phone", "grams", "hours", "id", "labor", "minutes", "mode", "name", "printer_id", "purge", "updated_at"].sort()
     )
   })
 
@@ -1940,6 +1941,140 @@ $$`)
        WHERE table_schema = 'public' AND table_name = 'impressora' AND column_name = 'coefficient'`
     )
     assert.equal(colunas.rows[0]?.column_name, "coefficient")
+    assert.equal(colunas.rows[0]?.data_type, "text")
+    assert.equal(colunas.rows[0]?.is_nullable, "NO")
+    assert.match(colunas.rows[0]?.column_default ?? "", /''/)
+  })
+
+  test("grava purge 30", async () => {
+    ok(await bancoProva().gravarProjeto(projeto({ name: "Suporte", purge: "30" })))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.projects[0]?.name, "Suporte")
+    assert.equal(lido.projects[0]?.purge, "30")
+  })
+
+  test("grava purge vazio", async () => {
+    ok(await bancoProva().gravarProjeto(projeto({ name: "Suporte", purge: "" })))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.projects[0]?.purge, "")
+  })
+
+  test("grava purge com espacos em volta", async () => {
+    ok(await bancoProva().gravarProjeto(projeto({ purge: " 30 " })))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.projects[0]?.purge, " 30 ")
+  })
+
+  test("grava purge so com espacos", async () => {
+    ok(await bancoProva().gravarProjeto(projeto({ purge: "   " })))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.projects[0]?.purge, "   ")
+  })
+
+  test("projeto antigo le purge vazio", async () => {
+    await sql("ALTER TABLE projeto DROP COLUMN IF EXISTS purge")
+    await sql(
+      `INSERT INTO projeto (id, conta_id, name, printer_id, mode, copies, hours, minutes, labor, color_mode, grams, updated_at)
+       VALUES ('antigo', $1, 'Antigo', 'k2-pro', 'peca', '1', '1', '0', '0', 'unica', '1', 10)`,
+      [contaIdProva]
+    )
+    const lido = ok(await bancoProva().ler())
+    const antigo = lido.projects.find((item) => item.id === "antigo")
+    assert.equal(antigo?.purge, "")
+  })
+
+  test("purge sobrevive na cor unica", async () => {
+    ok(await bancoProva().gravarProjeto(projeto({ purge: "30", colorMode: "multicolor" })))
+    ok(await bancoProva().gravarProjeto(projeto({ purge: "30", colorMode: "unica" })))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.projects[0]?.colorMode, "unica")
+    assert.equal(lido.projects[0]?.purge, "30")
+  })
+
+  test("purge sobrevive nas mesas", async () => {
+    ok(await bancoProva().gravarProjeto(projeto({ purge: "30" })))
+    ok(
+      await bancoProva().gravarProjeto(
+        projeto({
+          purge: "30",
+          hours: "",
+          minutes: "",
+          grams: "",
+          colors: [],
+          mesas: [mesa({ id: "a" })],
+        })
+      )
+    )
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.projects[0]?.mesas?.length, 1)
+    assert.equal(lido.projects[0]?.purge, "30")
+  })
+
+  test("duplicar copia o purge 30", async () => {
+    ok(await bancoProva().gravarProjeto(projeto({ name: "Suporte", purge: "30" })))
+    ok(await bancoProva().duplicarProjeto("p1", "p2", 99))
+    const copia = ok(await bancoProva().ler()).projects.find((item) => item.id === "p2")
+    assert.equal(copia?.name, "Suporte (cópia)")
+    assert.equal(copia?.purge, "30")
+  })
+
+  test("duplicar mesas copia o purge", async () => {
+    ok(
+      await bancoProva().gravarProjeto(
+        projeto({
+          purge: "30",
+          hours: "",
+          minutes: "",
+          grams: "",
+          colors: [],
+          mesas: [mesa({ id: "a" })],
+        })
+      )
+    )
+    ok(await bancoProva().duplicarProjeto("p1", "p2", 99))
+    const copia = ok(await bancoProva().ler()).projects.find((item) => item.id === "p2")
+    assert.equal(copia?.mesas?.length, 1)
+    assert.equal(copia?.purge, "30")
+  })
+
+  test("gravar purge duas vezes deixa um projeto", async () => {
+    ok(await bancoProva().gravarProjeto(projeto({ id: "p1", purge: "30", updatedAt: 10 })))
+    ok(await bancoProva().gravarProjeto(projeto({ id: "p1", purge: "30", updatedAt: 20 })))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.projects.length, 1)
+    assert.equal(lido.projects[0]?.id, "p1")
+    assert.equal(lido.projects[0]?.purge, "30")
+  })
+
+  test("purge nao vaza para outra conta", async () => {
+    const outra = await abrirBanco(url).criarConta("purge@example.com", "senha-oito")
+    assert.equal(outra.status, "criada")
+    if (outra.status !== "criada") return
+    ok(await comConta(contaIdProva, () => abrirBanco(url).gravarProjeto(projeto({ purge: "30" }))))
+    const minha = ok(await bancoProva().ler())
+    assert.equal(minha.projects[0]?.purge, "30")
+    const lido = ok(await comConta(outra.id, () => abrirBanco(url).ler()))
+    assert.equal(
+      lido.projects.some((item) => item.purge === "30"),
+      false
+    )
+  })
+
+  test("purge atrasado fica vazio", async () => {
+    ok(await bancoProva().gravarProjeto(projeto({ purge: "", updatedAt: 20 })))
+    ok(await bancoProva().gravarProjeto({ ...projeto({ purge: "30", updatedAt: 30 }), expectedUpdatedAt: 10 }))
+    const lido = ok(await bancoProva().ler())
+    assert.equal(lido.projects[0]?.purge, "")
+  })
+
+  test("coluna purge no schema", async () => {
+    ok(await bancoProva().ler())
+    const colunas = await sql<{ column_name: string; data_type: string; is_nullable: string; column_default: string | null }>(
+      `SELECT column_name, data_type, is_nullable, column_default
+       FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'projeto' AND column_name = 'purge'`
+    )
+    assert.equal(colunas.rows[0]?.column_name, "purge")
     assert.equal(colunas.rows[0]?.data_type, "text")
     assert.equal(colunas.rows[0]?.is_nullable, "NO")
     assert.match(colunas.rows[0]?.column_default ?? "", /''/)

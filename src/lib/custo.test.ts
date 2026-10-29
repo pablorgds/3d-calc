@@ -457,3 +457,230 @@ test("mao de obra vazia nao fecha com coeficiente", () => {
   assert.equal(dinheiro(sem.piece.total), "—")
   assert.equal(dinheiro(sem.lot.total), "—")
 })
+
+const impressoraProva = {
+  watts: "100",
+  energyPrice: "1",
+  printerPrice: "1000",
+  lifeHours: "1000",
+  coefficient: "",
+}
+
+function corProva(id: string, name: string, price: string, grams: string) {
+  return { id, name, hex: "#111111", price, grams }
+}
+
+function impressaoDeProva(overrides: Partial<JobDraft> = {}): JobDraft {
+  return {
+    mode: "peca",
+    copies: "1",
+    hours: "0",
+    minutes: "0",
+    labor: "0",
+    colorMode: "multicolor",
+    grams: "",
+    purge: "30",
+    colors: [
+      corProva("preto", "preto", "80", "20"),
+      corProva("branco", "branco", "120", "10"),
+      corProva("vermelho", "vermelho", "100", "5"),
+    ],
+    ...overrides,
+  }
+}
+
+function contaProva(overrides: Partial<JobDraft> = {}, printer = impressoraProva) {
+  return calculate(draftToCalcInput(impressaoDeProva(overrides), printer))
+}
+
+function perto(atual: number | null, esperado: number) {
+  assert.notEqual(atual, null)
+  assert.ok(Math.abs((atual ?? 0) - esperado) < 1e-9, `${atual} != ${esperado}`)
+}
+
+function linha(result: ReturnType<typeof calculate>, name: string) {
+  const color = result.colors.find((item) => item.name === name)
+  assert.ok(color)
+  return color
+}
+
+test("purge 30 fecha material 9,90", () => {
+  const result = contaProva()
+  perto(linha(result, "preto").material, 1.6)
+  perto(linha(result, "branco").material, 4.8)
+  perto(linha(result, "vermelho").material, 3.5)
+  perto(result.piece.material, 9.9)
+  assert.equal(result.piece.grams, 35)
+  assert.equal(result.lot.grams, 35)
+})
+
+test("purge vazio fecha material 3,30", () => {
+  const result = contaProva({ purge: "" })
+  perto(result.piece.material, 3.3)
+  assert.equal(result.piece.grams, 35)
+})
+
+test("purge zero fecha material 3,30", () => {
+  const result = contaProva({ purge: "0" })
+  perto(result.piece.material, 3.3)
+  assert.equal(result.piece.grams, 35)
+})
+
+test("purge so espacos fecha material 3,30", () => {
+  const result = contaProva({ purge: "   " })
+  perto(result.piece.material, 3.3)
+  assert.equal(result.piece.grams, 35)
+})
+
+test("uma cor nao paga o purge", () => {
+  const result = contaProva({
+    purge: "30",
+    colors: [corProva("preto", "preto", "80", "20")],
+  })
+  perto(result.piece.material, 1.6)
+  assert.equal(result.piece.grams, 20)
+})
+
+test("ordem invertida muda quem paga o purge", () => {
+  const result = contaProva({
+    colors: [
+      corProva("vermelho", "vermelho", "100", "5"),
+      corProva("branco", "branco", "120", "10"),
+      corProva("preto", "preto", "80", "20"),
+    ],
+  })
+  perto(linha(result, "vermelho").material, 0.5)
+  perto(linha(result, "branco").material, 4.8)
+  perto(linha(result, "preto").material, 4)
+  perto(result.piece.material, 9.3)
+})
+
+test("mesmo nome sao duas cores no purge", () => {
+  const result = contaProva({
+    colors: [corProva("a", "PLA preto", "80", "20"), corProva("b", "PLA preto", "120", "10")],
+  })
+  perto(result.colors[0].material, 1.6)
+  perto(result.colors[1].material, 4.8)
+  perto(result.piece.material, 6.4)
+  assert.equal(result.piece.grams, 30)
+})
+
+test("purge 30,5 nas linhas", () => {
+  const result = contaProva({ purge: "30,5" })
+  perto(linha(result, "branco").material, 4.86)
+  perto(linha(result, "vermelho").material, 3.55)
+  perto(result.piece.material, 10.01)
+})
+
+test("purge abc anula material mao e totais", () => {
+  const result = contaProva({ purge: "abc" })
+  assert.equal(result.piece.material, null)
+  assert.equal(result.piece.labor, null)
+  assert.equal(result.piece.total, null)
+  assert.equal(result.lot.total, null)
+})
+
+test("purge negativo anula o material", () => {
+  const result = contaProva({ purge: "-1" })
+  assert.equal(result.piece.material, null)
+})
+
+test("peso vazio anula antes do purge", () => {
+  const result = contaProva({
+    colors: [
+      corProva("preto", "preto", "80", ""),
+      corProva("branco", "branco", "120", "10"),
+      corProva("vermelho", "vermelho", "100", "5"),
+    ],
+  })
+  assert.equal(result.piece.material, null)
+  assert.equal(result.materialIssue, "invalid-color")
+})
+
+test("sem cores e purge vazio da material 0", () => {
+  const result = contaProva({ colors: [], purge: "" })
+  assert.equal(result.piece.material, 0)
+})
+
+test("sem cores e purge 30 da material 0", () => {
+  const result = contaProva({ colors: [], purge: "30" })
+  assert.equal(result.piece.material, 0)
+})
+
+test("sem cores e purge abc anula o material", () => {
+  const result = contaProva({ colors: [], purge: "abc" })
+  assert.equal(result.piece.material, null)
+})
+
+test("cor unica ignora purge 30", () => {
+  const result = contaProva({
+    colorMode: "unica",
+    grams: "800",
+    purge: "30",
+    colors: [corProva("a", "PLA", "100", "1")],
+  })
+  perto(result.piece.material, 80)
+  assert.equal(result.piece.grams, 800)
+})
+
+test("mesa ignora purge 30", () => {
+  const result = contaProva({
+    copies: "1",
+    labor: "0",
+    purge: "30",
+    mesas: [{ id: "m", hours: "0", minutes: "0", name: "PLA", hex: "#111111", price: "100", grams: "1000" }],
+  })
+  perto(result.piece.material, 100)
+  assert.equal(result.piece.grams, 1000)
+  perto(result.piece.total, 100)
+})
+
+test("mao de obra 10 inclui o purge", () => {
+  const result = contaProva({ labor: "10" })
+  perto(result.piece.material, 9.9)
+  perto(result.piece.labor, 0.99)
+  assert.equal(result.piece.grams, 35)
+  perto(result.piece.total, 10.89)
+})
+
+test("sessenta min com purge 30", () => {
+  const result = contaProva({ labor: "10", hours: "1", minutes: "0" })
+  perto(result.piece.energy, 0.1)
+  perto(result.piece.depreciation, 1)
+  perto(result.piece.labor, 1.1)
+  perto(result.piece.material, 9.9)
+})
+
+test("coeficiente 20 nao escala as linhas do purge", () => {
+  const result = contaProva({}, { ...impressoraProva, coefficient: "20" })
+  perto(result.piece.material, 9.9)
+  perto(result.piece.labor, 0)
+  assert.equal(result.piece.grams, 35)
+  perto(result.piece.total, 12.375)
+})
+
+test("lote de 2 copias escala o purge", () => {
+  const result = contaProva({ mode: "lote", copies: "2", labor: "0" })
+  perto(result.lot.material, 9.9)
+  perto(result.piece.material, 4.95)
+  assert.equal(result.lot.grams, 35)
+  assert.equal(result.piece.grams, 17.5)
+  perto(linha(result, "preto").material, 1.6)
+  perto(linha(result, "branco").material, 4.8)
+  perto(linha(result, "vermelho").material, 3.5)
+})
+
+test("lote de 0 copias mantem o purge", () => {
+  const result = contaProva({ mode: "lote", copies: "0", labor: "0" })
+  assert.equal(result.piece.total, null)
+  perto(result.lot.material, 9.9)
+  assert.equal(result.lot.grams, 35)
+})
+
+test("purge abc mantem energia e depreciacao", () => {
+  const result = contaProva({ purge: "abc", hours: "1", minutes: "0" })
+  perto(result.piece.energy, 0.1)
+  perto(result.piece.depreciation, 1)
+  assert.equal(result.piece.material, null)
+  assert.equal(result.piece.labor, null)
+})

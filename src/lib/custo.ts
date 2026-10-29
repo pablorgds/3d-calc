@@ -36,6 +36,7 @@ export type CalcInput = {
   coefficient: Field
   colors: ColorInput[]
   mesas?: MesaInput[]
+  purge?: Field
 }
 
 export type Amount = number | null
@@ -246,33 +247,38 @@ export function calculate(input: CalcInput): CalcResult {
 
   const depreciationBlocked = lifeIssue !== "none"
 
-  const colors: ColorDetail[] = input.colors.map((color) => {
+  const purge = input.purge ?? { status: "empty" as const }
+  const purgeInvalid = purge.status === "invalid"
+  const purgeGrams = purge.status === "ok" ? purge.value : 0
+
+  const colors: ColorDetail[] = input.colors.map((color, index) => {
     const invalid = color.pricePerKg.status !== "ok" || color.grams.status !== "ok"
     if (invalid) {
       return { id: color.id, name: color.name, hex: color.hex, grams: null, material: null, invalid: true }
     }
-    const grams = color.grams.status === "ok" ? color.grams.value : 0
-    const price = color.pricePerKg.status === "ok" ? color.pricePerKg.value : 0
+    const grams = color.grams.value
+    const price = color.pricePerKg.value
+    const extra = !purgeInvalid && index > 0 ? purgeGrams * (price / 1000) : 0
     return {
       id: color.id,
       name: color.name,
       hex: color.hex,
       grams,
-      material: grams * (price / 1000),
+      material: grams * (price / 1000) + extra,
       invalid: false,
     }
   })
 
   const materialIssue: CalcResult["materialIssue"] = colors.some((color) => color.invalid)
     ? "invalid-color"
-    : colors.length === 0
+    : colors.length === 0 && !purgeInvalid
       ? "no-colors"
       : "none"
 
   const enteredGrams: Amount =
     materialIssue === "invalid-color" ? null : colors.reduce((sum, color) => sum + (color.grams ?? 0), 0)
   const enteredMaterial: Amount =
-    materialIssue === "invalid-color"
+    materialIssue === "invalid-color" || purgeInvalid
       ? null
       : colors.reduce((sum, color) => sum + (color.material ?? 0), 0)
 
@@ -378,6 +384,7 @@ export type JobDraft = {
   grams: string
   colors: ColorDraft[]
   mesas?: MesaDraft[]
+  purge?: string
 }
 
 function coresParaConta(draft: JobDraft): CalcInput["colors"] {
@@ -398,6 +405,11 @@ export function combineTime(hoursRaw: string, minutesRaw: string): Field {
   if (hours.status === "empty" || minutes.status === "empty") return { status: "empty" }
   if (hours.status === "invalid" || minutes.status === "invalid") return { status: "invalid" }
   return { status: "ok", value: hours.value * 60 + minutes.value }
+}
+
+export function erroPurge(value: string): string | null {
+  if (parseDecimal(value).status === "invalid") return "Use zero ou um número positivo."
+  return null
 }
 
 export function erroCampo(value: string, integer = false): string | null {
@@ -457,6 +469,10 @@ export function draftToCalcInput(
     coefficient: parseDecimal(printer.coefficient ?? ""),
     colors: mesas.length > 0 ? [] : coresParaConta(draft),
     mesas,
+    purge:
+      mesas.length > 0 || (draft.colorMode ?? "multicolor") === "unica"
+        ? { status: "empty" }
+        : parseDecimal(draft.purge ?? ""),
   }
 }
 

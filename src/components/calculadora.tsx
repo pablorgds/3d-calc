@@ -12,6 +12,7 @@ import { useMovimento } from "@/components/movimento"
 import {
   calculate,
   draftToCalcInput,
+  erroPurge,
   errosAoGravar,
   formatDuration,
   formatGrams,
@@ -214,6 +215,7 @@ function CalculadoraEditor({
   const [labor, setLabor] = useState(initial?.labor ?? "")
   const [colorMode, setColorMode] = useState<ColorMode>(initial?.colorMode ?? "unica")
   const [grams, setGrams] = useState(initial?.grams ?? "")
+  const [purge, setPurge] = useState(initial?.purge ?? "")
   const [mesas, setMesas] = useState<MesaDraft[]>(initial?.mesas ?? [])
   const [recusa, setRecusa] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -280,6 +282,7 @@ function CalculadoraEditor({
       grams,
       colors,
       mesas,
+      purge,
       clientName,
       clientPhone,
       updatedAt: initial?.updatedAt ?? 0,
@@ -294,6 +297,7 @@ function CalculadoraEditor({
     setLabor(next.labor)
     setColorMode(next.colorMode)
     setGrams(next.grams)
+    setPurge(next.purge ?? "")
     setColors(next.colors)
     setMesas(next.mesas ?? [])
     setClientName(next.clientName)
@@ -340,7 +344,7 @@ function CalculadoraEditor({
   const result = printer
     ? calculate(
         draftToCalcInput(
-          { mode, copies, hours, minutes: minutesPart, labor, colorMode, grams, colors, mesas },
+          { mode, copies, hours, minutes: minutesPart, labor, colorMode, grams, colors, mesas, purge },
           printer
         )
       )
@@ -368,6 +372,10 @@ function CalculadoraEditor({
         if (colorMode === "multicolor") note(`${color.id}-peso`, color.grams)
       }
     }
+    if (colorMode === "multicolor" && mesas.length === 0) {
+      const mensagemPurge = erroPurge(purge)
+      if (mensagemPurge) issues.purge = mensagemPurge
+    }
     setFieldErrors(issues)
     setNameError(name ? null : "Dê um nome para gravar o lote.")
     if (!name || Object.keys(issues).length > 0) {
@@ -393,6 +401,7 @@ function CalculadoraEditor({
             grams: "",
             colors: [],
             mesas,
+            purge,
             clientName,
             clientPhone,
             updatedAt: 0,
@@ -411,6 +420,7 @@ function CalculadoraEditor({
             grams,
             colors: colorMode === "unica" ? colors.slice(0, 1).map((color) => ({ ...color, grams })) : colors,
             mesas: [],
+            purge,
             clientName,
             clientPhone,
             updatedAt: 0,
@@ -887,6 +897,21 @@ function CalculadoraEditor({
                   </div>
                 ))
               )}
+              {colorMode === "multicolor" && mesas.length === 0 ? (
+                <NumberField
+                  id="purge"
+                  label="Purge por troca (g)"
+                  value={purge}
+                  onChange={(value) => {
+                    setPurge(value)
+                    forgetIssue("purge")
+                  }}
+                  placeholder="0"
+                  when="reported"
+                  error={fieldErrors.purge ?? null}
+                  testId="purge"
+                />
+              ) : null}
             </div>
             ) : null}
             <Button type="button" variant="outline" className="h-11" onClick={incluirMesa} data-testid="adicionar-mesa">

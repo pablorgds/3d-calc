@@ -3,7 +3,7 @@ import assert from "node:assert/strict"
 import fs from "node:fs"
 import path from "node:path"
 import test from "node:test"
-import { calculate, draftToCalcInput, errosAoGravar, formatBRL, formatDuration, type MesaDraft } from "./custo.ts"
+import { calculate, draftToCalcInput, erroPurge, errosAoGravar, formatBRL, formatDuration, formatGrams, type MesaDraft } from "./custo.ts"
 import type { Project } from "./projetos-store.ts"
 
 const { ganharMesa, perderMesa } = await import("./projetos-store.ts")
@@ -855,4 +855,168 @@ test("campos identidade antes da impressora", () => {
   assert.ok(cliente > nome)
   assert.ok(telefone > cliente)
   assert.ok(impressora > telefone)
+})
+
+function impressaoDeProva(overrides: Partial<Project> = {}) {
+  return projetoVista({
+    name: "Suporte",
+    mode: "peca",
+    copies: "1",
+    hours: "0",
+    minutes: "0",
+    labor: "0",
+    colorMode: "multicolor",
+    grams: "",
+    colors: [
+      { id: "preto", name: "preto", hex: "#111111", price: "80", grams: "20" },
+      { id: "branco", name: "branco", hex: "#ffffff", price: "120", grams: "10" },
+      { id: "vermelho", name: "vermelho", hex: "#cc0000", price: "100", grams: "5" },
+    ],
+    clientName: "Ana",
+    clientPhone: "11999990000",
+    purge: "30",
+    ...overrides,
+  })
+}
+
+test("rotulo purge nas varias cores", () => {
+  const calculadora = fonte("src/components/calculadora.tsx")
+  const condicao = calculadora.indexOf('colorMode === "multicolor" && mesas.length === 0')
+  const rotulo = calculadora.indexOf("Purge por troca (g)")
+  assert.ok(condicao >= 0)
+  assert.ok(rotulo > condicao)
+})
+
+test("rotulo purge ausente na cor unica", () => {
+  const calculadora = fonte("src/components/calculadora.tsx")
+  const rotulo = calculadora.indexOf("Purge por troca (g)")
+  const condicao = calculadora.slice(0, rotulo).lastIndexOf('colorMode === "multicolor"')
+  assert.ok(rotulo >= 0)
+  assert.ok(condicao >= 0)
+  assert.equal(calculadora.split("Purge por troca (g)").length, 2)
+})
+
+test("rotulo purge ausente nas mesas", () => {
+  const calculadora = fonte("src/components/calculadora.tsx")
+  const rotulo = calculadora.indexOf("Purge por troca (g)")
+  const condicao = calculadora.slice(0, rotulo).lastIndexOf("mesas.length === 0")
+  assert.ok(rotulo >= 0)
+  assert.ok(condicao >= 0)
+  assert.ok(rotulo - condicao < 200)
+})
+
+test("purge vazio sem a frase campo vazio", () => {
+  assert.equal(erroPurge(""), null)
+  const calculadora = fonte("src/components/calculadora.tsx")
+  const inicio = calculadora.indexOf('label="Purge por troca (g)"')
+  const trecho = calculadora.slice(inicio, inicio + 400)
+  assert.match(trecho, /when="reported"/)
+  assert.equal(trecho.includes("Campo vazio."), false)
+})
+
+test("purge abc nao cria o lote", () => {
+  assert.equal(erroPurge("abc"), "Use zero ou um número positivo.")
+  const calculadora = fonte("src/components/calculadora.tsx")
+  const recusa = calculadora.indexOf("erroPurge(purge)")
+  const retorno = calculadora.indexOf("Object.keys(issues).length > 0")
+  const grava = calculadora.indexOf("writeProject(")
+  assert.ok(recusa >= 0)
+  assert.ok(retorno > recusa)
+  assert.ok(grava > retorno)
+})
+
+test("purge abc nao substitui o vazio", () => {
+  assert.equal(erroPurge("abc"), "Use zero ou um número positivo.")
+  assert.equal(erroPurge(""), null)
+  const calculadora = fonte("src/components/calculadora.tsx")
+  const recusa = calculadora.indexOf("erroPurge(purge)")
+  const retorno = calculadora.indexOf("Object.keys(issues).length > 0")
+  const grava = calculadora.indexOf("writeProject(")
+  assert.ok(recusa >= 0)
+  assert.ok(retorno > recusa)
+  assert.ok(grava > retorno)
+})
+
+test("tabela sem linha purge", () => {
+  const calculadora = fonte("src/components/calculadora.tsx")
+  assert.equal(calculadora.includes('label="Purge"'), false)
+  assert.match(calculadora, /label="Material"/)
+  assert.match(calculadora, /label="Peso"/)
+})
+
+test("peso da prova sem as gramas de purge", () => {
+  const result = calculate(draftToCalcInput(impressaoDeProva({ labor: "0", purge: "30" }), prova))
+  assert.equal(formatGrams(result.piece.grams ?? 0), formatGrams(35))
+  assert.equal(formatGrams(result.lot.grams ?? 0), formatGrams(35))
+  assert.match(fonte("src/components/calculadora.tsx"), /formatGrams/)
+})
+
+test("texto do cliente leva o total com purge", () => {
+  const { texto } = textoDo(
+    impressaoDeProva({ labor: "0", purge: "30", name: "Suporte", clientName: "Ana", clientPhone: "11999990000" })
+  )
+  assert.equal(texto.includes(formatBRL(9.9)), true)
+  assert.equal(texto.includes("Suporte"), true)
+  assert.equal(texto.includes("Ana"), true)
+  assert.equal(texto.includes("11999990000"), true)
+  assert.equal(texto.includes("Purge"), false)
+  assert.equal(texto.includes("Material"), false)
+})
+
+test("purge abc esconde copiar orcamento", () => {
+  const result = calculate(draftToCalcInput(impressaoDeProva({ purge: "abc" }), prova))
+  assert.equal(result.lot.total, null)
+  assert.equal(podeCopiarOrcamento(result.lot.total), false)
+  assert.equal(ROTULO_COPIAR, "Copiar orçamento")
+  assert.match(fonte("src/components/calculadora.tsx"), /podeCopiarOrcamento\(result\.lot\.total\)/)
+})
+
+test("lista mostra o total com purge", () => {
+  const total = calculate(draftToCalcInput(impressaoDeProva({ labor: "0", purge: "30" }), prova)).lot.total
+  assert.equal(formatBRL(total ?? 0), formatBRL(9.9))
+  assert.match(fonte("src/components/lista-projetos.tsx"), /draftToCalcInput/)
+})
+
+test("lista acompanha coeficiente com purge gravado", () => {
+  const project = impressaoDeProva({ labor: "0", purge: "30" })
+  const total = calculate(draftToCalcInput(project, { ...prova, coefficient: "20" })).lot.total
+  assert.equal(formatBRL(total ?? 0), formatBRL(12.375))
+  assert.equal(project.purge, "30")
+  assert.match(fonte("src/components/lista-projetos.tsx"), /draftToCalcInput/)
+})
+
+test("impressora sem rotulo de purge", () => {
+  assert.equal(fonte("src/components/configuracoes-form.tsx").includes("Purge por troca (g)"), false)
+})
+
+test("purge abc nao usa o aviso de cor", () => {
+  const result = calculate(draftToCalcInput(impressaoDeProva({ purge: "abc" }), prova))
+  const notas = notasResultado(result, "peca")
+  assert.equal(notas.some((nota) => nota.includes("Há cor com preço ou peso vazio ou inválido.")), false)
+  assert.match(fonte("src/components/calculadora.tsx"), /notasResultado/)
+})
+
+test("cor vazia mantem o aviso de cor", () => {
+  const project = impressaoDeProva({
+    purge: "30",
+    colors: [
+      { id: "preto", name: "preto", hex: "#111111", price: "", grams: "20" },
+      { id: "branco", name: "branco", hex: "#ffffff", price: "120", grams: "10" },
+      { id: "vermelho", name: "vermelho", hex: "#cc0000", price: "100", grams: "5" },
+    ],
+  })
+  const notas = notasResultado(calculate(draftToCalcInput(project, prova)), "peca")
+  assert.equal(notas.some((nota) => nota.includes("Há cor com preço ou peso vazio ou inválido.")), true)
+  assert.match(fonte("src/components/calculadora.tsx"), /notasResultado/)
+})
+
+test("sem cores e purge vazio mostra material zero", () => {
+  const result = calculate(draftToCalcInput(impressaoDeProva({ colors: [], purge: "" }), prova))
+  assert.equal(notasResultado(result, "peca").includes("Sem cores. Material R$ 0,00."), true)
+  assert.match(fonte("src/components/calculadora.tsx"), /notasResultado/)
+})
+
+test("sem cores e purge abc esconde material zero", () => {
+  const result = calculate(draftToCalcInput(impressaoDeProva({ colors: [], purge: "abc" }), prova))
+  assert.equal(notasResultado(result, "peca").includes("Sem cores. Material R$ 0,00."), false)
 })

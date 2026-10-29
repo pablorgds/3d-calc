@@ -187,6 +187,7 @@ export function parseProject(value: unknown): Project | null {
     mesas,
     clientName: asString(record.clientName),
     clientPhone: asString(record.clientPhone),
+    purge: asString(record.purge),
     updatedAt: typeof record.updatedAt === "number" && Number.isFinite(record.updatedAt) ? record.updatedAt : 0,
   }
 }

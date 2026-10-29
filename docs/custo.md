@@ -10,6 +10,7 @@ Para o valor digitado (uma peça no modo peça, a mesa no modo lote):
 
 - Material de uma cor = gramas × (R$/kg ÷ 1000). O material é a soma das cores.
 - Cor única: o peso é da peça (ou da mesa, no modo lote) e entra na única cor. Várias cores: cada cor tem o próprio peso.
+- Em várias cores, o purge é um número só de gramas por troca. Com N cores há max(0, N−1) trocas. A primeira cor não paga. Cada cor seguinte soma `purge × (R$/kg ÷ 1000)` na própria linha. O peso continua a soma das gramas digitadas. Vazio ou zero soma R$ 0. Texto inválido deixa o material, a mão de obra e os totais sem fechar; energia e depreciação ficam quando fecham. Cor única e mesas não leem esse texto.
 - Energia = (W ÷ 1000) × (minutos ÷ 60) × R$/kWh.
 - Depreciação = (preço da máquina ÷ vida útil em horas) × horas.
 - Mão de obra = (material + energia + depreciação) × (percentual ÷ 100).
@@ -38,7 +39,7 @@ Sem mesas, a conta continua a da impressão única.
 
 `parseDecimal` e `parseInteger` devolvem `empty`, `invalid` ou `ok`. Vazio não vira zero. Negativo é inválido. `1,5` e `1.234,56` são decimais em pt-BR. Cópias são inteiras; `2,5` é inválido.
 
-Se material, energia, depreciação ou mão de obra não fecham, o total daquele lado é `null`. Uma cor com preço ou gramas inválidos anula o material inteiro (`invalid-color`). Nenhuma cor (`no-colors`) deixa o material em zero e o total pode fechar.
+Se material, energia, depreciação ou mão de obra não fecham, o total daquele lado é `null`. Uma cor com preço ou gramas inválidos anula o material inteiro (`invalid-color`). Nenhuma cor (`no-colors`) deixa o material em zero e o total pode fechar. Purge inválido em várias cores também deixa o material sem fechar, mesmo sem cores e mesmo com uma cor só; não é o mesmo aviso da cor.
 
 Horas e minutos do rascunho viram um único campo de minutos em `combineTime`. Os dois precisam estar preenchidos e válidos.
 
