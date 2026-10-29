@@ -17,10 +17,10 @@
 
 ## Handoff
 
-**Feature**: ux-calculadora
-**Where**: C1–C16 PASS. Check wording C10 at `cef6d22`. Fresh verifier round 2 at `329ed29`. `validate_verification.py ux-calculadora` exit 0.
+**Feature**: ux-calculadora (done, merged to main)
+**Where**: Merged via PR #1 (https://github.com/pablorgds/3d-calc/pull/1) as squash commit `e7d3f048bae06186cea4830d6645fab0a9cd6e6e`. C1–C16 PASS before merge. Check wording C10. `validate_verification.py ux-calculadora` exit 0.
 **In progress**: none
-**Next step**: owner reviews https://github.com/pablorgds/3d-calc/pull/1
+**Next step**: none queued. Owner picks the next feature (TBD).
 **Blockers**: none
 **Uncommitted**: none
-**Branch**: cursor/ux-calculadora-ac85
+**Branch**: main
