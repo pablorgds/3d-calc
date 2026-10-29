@@ -40,7 +40,7 @@ export function vistaCarregamento(tela: TelaBanco, status: "lendo" | "erro") {
 }
 
 export const FRASE_MESAS =
-  "Cada mesa é uma chapa: um tempo e um filamento. A peça soma as mesas. As cópias multiplicam o produto."
+  "Cada mesa: um tempo e um filamento. A peça soma; as cópias multiplicam."
 export const FRASE_VARIAS_CORES = "Esta impressão tem várias cores num tempo só. A mesa leva uma cor."
 export const AVISO_COPIAS_PRODUTO =
   "Custo do lote bloqueado. Cópias do produto precisa ser um inteiro maior que zero."
@@ -104,6 +104,12 @@ export function frasesCalculadora(situacao: "ausente" | "gravado" | "novo") {
 export const ROTULO_CLIENTE = "Cliente"
 export const ROTULO_TELEFONE = "Telefone"
 export const ROTULO_COPIAR = "Copiar orçamento"
+export const ROTULO_COPIADO = "Copiado"
+export const MS_ROTULO_COPIADO = 3000
+
+export function rotuloCopiar(copiou: boolean) {
+  return copiou ? ROTULO_COPIADO : ROTULO_COPIAR
+}
 
 export function mascaraTelefone(valor: string, anterior = "") {
   const digitos = valor.replace(/\D/g, "").slice(0, 11)
@@ -139,7 +145,7 @@ export function linhaImpressora(printer: { name: string; watts: string; energyPr
 export function notasResultado(result: CalcResult, mode: EntryMode): string[] {
   const notes: string[] = []
   if (result.materialIssue === "no-colors") {
-    notes.push("Nenhuma cor de filamento. O material entra como R$ 0,00.")
+    notes.push("Sem cores. Material R$ 0,00.")
   }
   if (result.materialIssue === "invalid-color") {
     notes.push("Há cor com preço ou peso vazio ou inválido. O material sai do total até corrigir.")
@@ -183,7 +189,7 @@ export function notasResultado(result: CalcResult, mode: EntryMode): string[] {
     notes.push("Custo do lote bloqueado. Informe as cópias com um inteiro a partir de zero.")
   }
   if (!result.mesas && mode === "peca") {
-    notes.push("Peça única: não há cópias na mesa. O lote é esta mesma peça.")
+    notes.push("Peça única: o lote é esta peça.")
   }
   return notes
 }

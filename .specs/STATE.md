@@ -17,10 +17,10 @@
 
 ## Handoff
 
-**Feature**: coeficiente
-**Where**: C1–C47 closed at `9ea2f96ab972c74a4f2020e27ddf6fef3ea8ea49`. Verifier PASS. `validate_verification.py coeficiente` exited 0.
+**Feature**: ux-calculadora
+**Where**: C1–C16 proofs green. Builder finished. `verification.md` not written.
 **In progress**: none
-**Next step**: the owner reviews the first quote with coefficient `20` after the app on port 4317 is rebuilt. The process there is still the previous image.
+**Next step**: independent verifier over `main..HEAD` for every check C1–C16 (profile light). Then `python3 .cursor/skills/tlc-spec-lean/scripts/validate_verification.py ux-calculadora`.
 **Blockers**: none
-**Uncommitted**: `compose.yaml` `ORIGEM_PUBLICA` stays out of the feature.
-**Branch**: main
+**Uncommitted**: none
+**Branch**: cursor/ux-calculadora-ac85

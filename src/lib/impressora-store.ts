@@ -156,3 +156,30 @@ export function deletePrinter(store: PrinterStore, id: string): PrinterStore {
 export function activePrinterOf(store: PrinterStore): Printer {
   return store.printers.find((printer) => printer.id === store.activeId) ?? store.printers[0]
 }
+
+export function persistirNumeroNoEvento(when: "live" | "blur" | "reported", evento: "change" | "blur") {
+  if (when === "blur") return evento === "blur"
+  return evento === "change"
+}
+
+export function criarOrdemDeAtualizacao() {
+  const porId = new Map<string, { atual: number; aplicada: number }>()
+  function slot(id: string) {
+    const atual = porId.get(id) ?? { atual: 0, aplicada: 0 }
+    porId.set(id, atual)
+    return atual
+  }
+  return {
+    marcar(id: string) {
+      const s = slot(id)
+      s.atual += 1
+      return s.atual
+    },
+    aceitar(id: string, ticket: number) {
+      const s = slot(id)
+      if (ticket <= s.aplicada) return false
+      s.aplicada = ticket
+      return true
+    },
+  }
+}

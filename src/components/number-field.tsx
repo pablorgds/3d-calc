@@ -2,8 +2,9 @@
 
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { parseDecimal, parseInteger } from "@/lib/custo"
+import { persistirNumeroNoEvento } from "@/lib/impressora-store"
 
 export function NumberField({
   id,
@@ -29,22 +30,32 @@ export function NumberField({
   error?: string | null
 }) {
   const [blurred, setBlurred] = useState<string | null>(null)
-  const parsed = integer ? parseInteger(value) : parseDecimal(value)
+  const [rascunho, setRascunho] = useState(value)
+  useEffect(() => {
+    setRascunho(value)
+  }, [value])
+  const mostrado = when === "blur" ? rascunho : value
+  const parsed = integer ? parseInteger(mostrado) : parseDecimal(mostrado)
   const reported = when === "reported" ? error : when === "blur" ? blurred : null
   return (
     <div className="campo">
       <Label htmlFor={id}>{label}</Label>
       <Input
         id={id}
-        value={value}
+        value={mostrado}
         onChange={(event) => {
-          if (when === "blur") setBlurred(null)
-          onChange(event.target.value)
+          const next = event.target.value
+          if (when === "blur") {
+            setBlurred(null)
+            setRascunho(next)
+          }
+          if (persistirNumeroNoEvento(when, "change")) onChange(next)
         }}
         onBlur={
           when === "blur"
             ? () => {
-                setBlurred(numberFieldIssue(value, integer))
+                setBlurred(numberFieldIssue(rascunho, integer))
+                if (persistirNumeroNoEvento(when, "blur")) onChange(rascunho)
               }
             : undefined
         }

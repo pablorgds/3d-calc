@@ -32,8 +32,10 @@ const {
   AVISO_IMPRESSORA_REMOVIDA,
   ROTULO_CLIENTE,
   ROTULO_COEFICIENTE,
+  ROTULO_COPIADO,
   ROTULO_COPIAR,
   ROTULO_TELEFONE,
+  rotuloCopiar,
   linhaCliente,
   mascaraTelefone,
   notasResultado,
@@ -291,7 +293,7 @@ test("modos da impressao unica", () => {
 test("frase de cada mesa", () => {
   assert.equal(
     FRASE_MESAS,
-    "Cada mesa é uma chapa: um tempo e um filamento. A peça soma as mesas. As cópias multiplicam o produto."
+    "Cada mesa: um tempo e um filamento. A peça soma; as cópias multiplicam."
   )
   assert.equal(fichaCalculadora(true, "peca").frase, FRASE_MESAS)
   assert.match(fonte("src/components/calculadora.tsx"), /ficha\.frase/)
@@ -769,6 +771,88 @@ test("texto sem aviso de nenhuma cor", () => {
 test("aviso de nenhuma cor fica na tela", () => {
   const project = projetoDeProva({ labor: "0", grams: "0", colors: [], clientName: "", clientPhone: "" })
   const result = calculate(draftToCalcInput(project, prova20))
-  assert.equal(notasResultado(result, "peca").includes("Nenhuma cor de filamento. O material entra como R$ 0,00."), true)
+  assert.equal(notasResultado(result, "peca").includes("Sem cores. Material R$ 0,00."), true)
   assert.match(fonte("src/components/calculadora.tsx"), /notasResultado/)
+})
+
+test("resultado sticky no md", () => {
+  assert.match(fonte("src/components/calculadora.tsx"), /md:sticky md:top-28/)
+})
+
+test("barra lote com total fechado", () => {
+  const { result } = textoDo(projetoDeProva())
+  assert.equal(result.lot.total !== null, true)
+  assert.equal(podeCopiarOrcamento(result.lot.total), true)
+  const calculadora = fonte("src/components/calculadora.tsx")
+  const barra = calculadora.indexOf('data-testid="barra-lote"')
+  assert.ok(barra >= 0)
+  assert.ok(calculadora.indexOf("showMoney(result.lot.total)", barra) > barra)
+  assert.ok(calculadora.indexOf("podeCopiarOrcamento(result.lot.total)", barra) > barra)
+  assert.ok(calculadora.indexOf("ROTULO_COPIAR", barra) > barra)
+})
+
+test("barra lote sem copiar quando lote aberto", () => {
+  const project = projetoVista({
+    copies: "0",
+    labor: "10",
+    mesas: [
+      mesa({ id: "a", hours: "0", minutes: "0", grams: "1000", price: "100" }),
+      mesa({ id: "b", hours: "0", minutes: "0", grams: "1000", price: "100" }),
+    ],
+  })
+  const result = calculate(draftToCalcInput(project, prova))
+  assert.equal(result.lot.total, null)
+  assert.equal(podeCopiarOrcamento(result.lot.total), false)
+  const calculadora = fonte("src/components/calculadora.tsx")
+  const barra = calculadora.indexOf('data-testid="barra-lote"')
+  assert.ok(barra >= 0)
+  assert.ok(calculadora.indexOf("podeCopiarOrcamento(result.lot.total)", barra) > barra)
+})
+
+test("rotulo copiado apos sucesso", () => {
+  assert.equal(ROTULO_COPIADO, "Copiado")
+  assert.equal(rotuloCopiar(true), "Copiado")
+  assert.match(fonte("src/components/calculadora.tsx"), /ROTULO_COPIADO/)
+  assert.match(fonte("src/components/calculadora.tsx"), /MS_ROTULO_COPIADO/)
+})
+
+test("rotulo copiar orcamento", () => {
+  assert.equal(ROTULO_COPIAR, "Copiar orçamento")
+  assert.equal(rotuloCopiar(false), ROTULO_COPIAR)
+})
+
+test("aviso curto sem cores", () => {
+  const project = projetoDeProva({ labor: "0", grams: "0", colors: [], clientName: "", clientPhone: "" })
+  const result = calculate(draftToCalcInput(project, prova20))
+  const notes = notasResultado(result, "peca")
+  assert.equal(result.materialIssue, "no-colors")
+  assert.equal(result.lot.total !== null, true)
+  assert.equal(notes.includes("Sem cores. Material R$ 0,00."), true)
+  assert.equal(notes.includes("Nenhuma cor de filamento. O material entra como R$ 0,00."), false)
+})
+
+test("aviso curto peca unica", () => {
+  const project = projetoDeProva()
+  assert.equal(project.mode, "peca")
+  assert.ok(!project.mesas || project.mesas.length === 0)
+  const notes = notasResultado(calculate(draftToCalcInput(project, prova20)), "peca")
+  assert.equal(notes.includes("Peça única: o lote é esta peça."), true)
+  assert.equal(notes.some((note) => note.includes("não há cópias na mesa") || note.includes("nao há cópias na mesa")), false)
+})
+
+test("frase mesas curta", () => {
+  assert.equal(FRASE_MESAS, "Cada mesa: um tempo e um filamento. A peça soma; as cópias multiplicam.")
+  assert.equal(fichaCalculadora(true, "peca").frase, FRASE_MESAS)
+})
+
+test("campos identidade antes da impressora", () => {
+  const calculadora = fonte("src/components/calculadora.tsx")
+  const nome = calculadora.indexOf('data-testid="nome-projeto"')
+  const cliente = calculadora.indexOf('data-testid="cliente"')
+  const telefone = calculadora.indexOf('data-testid="telefone"')
+  const impressora = calculadora.indexOf('data-testid="impressora-ativa"')
+  assert.ok(nome >= 0)
+  assert.ok(cliente > nome)
+  assert.ok(telefone > cliente)
+  assert.ok(impressora > telefone)
 })
