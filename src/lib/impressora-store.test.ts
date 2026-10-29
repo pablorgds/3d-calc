@@ -2,9 +2,11 @@ import assert from "node:assert/strict"
 import test from "node:test"
 import {
   activatePrinter,
+  criarOrdemDeAtualizacao,
   deletePrinter,
   insertPrinter,
   parsePrinterStore,
+  persistirNumeroNoEvento,
   serializePrinterStore,
   updatePrinter,
   DEFAULT_PRINTER_ID,
@@ -113,4 +115,29 @@ test("payload de impressoras versao 3", () => {
   const json = JSON.parse(cru) as { version: number }
   assert.equal(json.version, 3)
   assert.equal(parsePrinterStore(cru).printers[0].coefficient, "20")
+})
+
+test("coeficiente 20 apos digitar rapido", () => {
+  const id = defaultPrinter.id
+  const ordem = criarOrdemDeAtualizacao()
+  let store = parsePrinterStore(null)
+  assert.equal(persistirNumeroNoEvento("blur", "change"), false)
+  const cedo = ordem.marcar(id)
+  assert.equal(persistirNumeroNoEvento("blur", "blur"), true)
+  const blur = ordem.marcar(id)
+  if (ordem.aceitar(id, blur)) store = updatePrinter(store, id, { coefficient: "20" })
+  if (ordem.aceitar(id, cedo)) store = updatePrinter(store, id, { coefficient: "2" })
+  assert.equal(store.printers[0].coefficient, "20")
+  assert.notEqual(store.printers[0].coefficient, "2")
+})
+
+test("update impressora mais recente vence", () => {
+  const id = defaultPrinter.id
+  const ordem = criarOrdemDeAtualizacao()
+  let store = parsePrinterStore(null)
+  const primeiro = ordem.marcar(id)
+  const segundo = ordem.marcar(id)
+  if (ordem.aceitar(id, segundo)) store = updatePrinter(store, id, { coefficient: "20" })
+  if (ordem.aceitar(id, primeiro)) store = updatePrinter(store, id, { coefficient: "2" })
+  assert.equal(store.printers[0].coefficient, "20")
 })

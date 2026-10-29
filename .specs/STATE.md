@@ -17,10 +17,10 @@
 
 ## Handoff
 
-**Feature**: coeficiente
-**Where**: C1–C47 closed at `9ea2f96ab972c74a4f2020e27ddf6fef3ea8ea49`. Verifier PASS. `validate_verification.py coeficiente` exited 0.
+**Feature**: ux-calculadora
+**Where**: C1–C16 PASS. Check wording C10 at `cef6d22`. Fresh verifier round 2 at `329ed29`. `validate_verification.py ux-calculadora` exit 0.
 **In progress**: none
-**Next step**: the owner reviews the first quote with coefficient `20` after the app on port 4317 is rebuilt. The process there is still the previous image.
+**Next step**: owner reviews https://github.com/pablorgds/3d-calc/pull/1
 **Blockers**: none
-**Uncommitted**: `compose.yaml` `ORIGEM_PUBLICA` stays out of the feature.
-**Branch**: main
+**Uncommitted**: none
+**Branch**: cursor/ux-calculadora-ac85

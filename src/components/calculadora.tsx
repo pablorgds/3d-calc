@@ -37,6 +37,8 @@ import {
   notasResultado,
   podeCopiarOrcamento,
   ROTULO_CLIENTE,
+  MS_ROTULO_COPIADO,
+  ROTULO_COPIADO,
   ROTULO_COPIAR,
   ROTULO_TELEFONE,
   textoAposCopia,
@@ -216,12 +218,19 @@ function CalculadoraEditor({
   const [recusa, setRecusa] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [textoSelecionavel, setTextoSelecionavel] = useState<string | null>(null)
+  const [copiou, setCopiou] = useState(false)
 
   useEffect(() => {
     const printerId = initial?.printerId
     if (!printerId) return
     setActivePrinter(printerId)
   }, [initial?.printerId])
+
+  useEffect(() => {
+    if (!copiou) return
+    const volta = window.setTimeout(() => setCopiou(false), MS_ROTULO_COPIADO)
+    return () => window.clearTimeout(volta)
+  }, [copiou])
 
   function forgetIssue(id: string) {
     setFieldErrors((current) => {
@@ -461,8 +470,10 @@ function CalculadoraEditor({
     try {
       await navigator.clipboard.writeText(texto)
       setTextoSelecionavel(textoAposCopia(false, texto))
+      setCopiou(true)
     } catch {
       setTextoSelecionavel(textoAposCopia(true, texto))
+      setCopiou(false)
     }
   }
   const avisoCopias = mesas.length > 0 ? avisoCopiasProduto(copies) : null
@@ -941,7 +952,7 @@ function CalculadoraEditor({
 
           {podeCopiarOrcamento(result.lot.total) ? (
             <Button type="button" variant="outline" className="h-11" onClick={() => void copiarOrcamento()} data-testid="copiar-orcamento">
-              {ROTULO_COPIAR}
+              {copiou ? ROTULO_COPIADO : ROTULO_COPIAR}
             </Button>
           ) : null}
           {textoSelecionavel ? (
@@ -982,7 +993,7 @@ function CalculadoraEditor({
       </Card>
       </div>
 
-      <div className="barra-totais" aria-hidden="true">
+      <div className="barra-totais" data-testid="barra-lote">
         <div>
           <p className="legenda text-muted-foreground">Por peça</p>
           <p className="figura">{showMoney(result.piece.total)}</p>
@@ -991,6 +1002,11 @@ function CalculadoraEditor({
           <p className="legenda text-muted-foreground">Lote</p>
           <p className="figura">{showMoney(result.lot.total)}</p>
         </div>
+        {podeCopiarOrcamento(result.lot.total) ? (
+          <Button type="button" variant="outline" className="h-11" onClick={() => void copiarOrcamento()}>
+            {copiou ? ROTULO_COPIADO : ROTULO_COPIAR}
+          </Button>
+        ) : null}
       </div>
     </main>
   )

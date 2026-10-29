@@ -8,7 +8,7 @@ import {
 } from "./acoes"
 import { PRINTER_STORAGE_KEY, PROJECTS_STORAGE_KEY } from "./chaves"
 import { aplicarResultado, assinarEstado, lerEstado, type Leitura } from "./estado"
-import type { Printer, PrinterStore } from "./impressora-store"
+import { criarOrdemDeAtualizacao, type Printer, type PrinterStore } from "./impressora-store"
 
 export { PRINTER_STORAGE_KEY }
 export type { Printer, PrinterStore }
@@ -51,8 +51,12 @@ export function setActivePrinter(id: string) {
   })
 }
 
+const ordemAtualizacao = criarOrdemDeAtualizacao()
+
 export function updatePrinterById(id: string, patch: Partial<Omit<Printer, "id">>) {
+  const ticket = ordemAtualizacao.marcar(id)
   void atualizarImpressoraNoBanco(id, patch).then((resultado) => {
+    if (!ordemAtualizacao.aceitar(id, ticket)) return
     aplicarResultado(resultado)
   })
 }
