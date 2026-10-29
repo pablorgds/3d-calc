@@ -10,7 +10,7 @@ Ideias anotadas. **Feito** já está no produto. **Aberto** ainda não é plano 
 | Impressão falha | feito como coeficiente na impressora |
 | Estoque de filamentos | aberto — R$/kg congelado na cor ou acompanha o cadastro |
 | Refugo | aberto — percentual das gramas ou gramas fixas no lote |
-| Purge | aberto — gramas por troca na calculadora ou padrão da impressora |
+| Purge | rascunho — gramas por troca na calculadora; desenho aguarda confirmação |
 | Mão de obra por hora | aberto — substitui o % ou a pessoa escolhe % ou R$/h |
 | Tarifa diferente por projeto | aberto — R$/kWh digitado no projeto ou cópia da tarifa da impressora |
 
@@ -118,9 +118,9 @@ Fora deste item, até alguém pedir: refugo diferente por cor, e baixa desse pes
 
 ### Purge
 
-Status: aberto. Ainda não é plano nem código.
+Status: rascunho em [.design/purge.md](../.design/purge.md), 2026-10-28. Ainda não é plano nem código. As gramas na calculadora estão fechadas; o desenho espera confirmação.
 
-A decidir: as gramas de purge são um número por troca, digitado na calculadora, ou um número da impressora, repetido em cada troca.
+Decidido em 2026-10-28: as gramas de purge são um número por troca, digitado na calculadora, não um padrão da impressora.
 
 Numa impressão de várias cores, o material é só as gramas de cada cor. A troca de filamento no meio da peça não acrescenta o purge. Num projeto de mesas, cada mesa é um filamento só e também não troca no meio.
 
