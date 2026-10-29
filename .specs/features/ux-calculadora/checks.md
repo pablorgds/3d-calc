@@ -105,3 +105,6 @@ Status: done
 - S1–S5 = 96778 bytes (`calculadora.tsx` 37610 + `vistas.ts` 10505 + `vistas.test.ts` 29890 + `impressora-store.ts` 4774 + `impressora-store.test.ts` 3630 + `impressora.ts` 2036 + `number-field.tsx` 2200 + `configuracoes-form.tsx` 6133) / 4 = 24194
 - Total 24194, abaixo do orçamento de 150k — one builder
 - Mechanism: one builder
+- **Boundary:** C1–C16 closed at d1cc981ffb52cf9736a55524d94df4ea011eedf9
+- **Settled mid-build:** none
+- **Abandoned:** none

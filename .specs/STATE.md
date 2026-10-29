@@ -18,7 +18,7 @@
 ## Handoff
 
 **Feature**: ux-calculadora
-**Where**: C1–C16 proofs green. Builder finished. `verification.md` not written.
+**Where**: C1–C16 closed at `d1cc981ffb52cf9736a55524d94df4ea011eedf9`. Builder finished. `verification.md` not written.
 **In progress**: none
 **Next step**: independent verifier over `main..HEAD` for every check C1–C16 (profile light). Then `python3 .cursor/skills/tlc-spec-lean/scripts/validate_verification.py ux-calculadora`.
 **Blockers**: none
