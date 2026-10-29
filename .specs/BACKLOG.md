@@ -8,9 +8,9 @@ Ideias anotadas. **Feito** já está no produto. **Aberto** ainda não é plano 
 | Login | feito — contas e `sessao`, com admin |
 | Orçamento em PDF ou texto | feito como texto copiado; PDF de fora |
 | Impressão falha | feito como coeficiente na impressora |
+| Purge | feito — campo opcional “Purge por troca (g)” só na impressão de várias cores |
 | Estoque de filamentos | aberto — R$/kg congelado na cor ou acompanha o cadastro |
 | Refugo | aberto — percentual das gramas ou gramas fixas no lote |
-| Purge | rascunho — gramas por troca na calculadora; desenho aguarda confirmação |
 | Mão de obra por hora | aberto — substitui o % ou a pessoa escolhe % ou R$/h |
 | Tarifa diferente por projeto | aberto — R$/kWh digitado no projeto ou cópia da tarifa da impressora |
 
@@ -88,6 +88,22 @@ Fora deste item, até alguém pedir: histórico de falhas e uma taxa média calc
 
 Decidido no desenho: o coeficiente é um número na impressora, vazio vale zero, e só o total em reais muda. O texto do cliente foi revisto no mesmo desenho. Histórico e taxa média continuam fora.
 
+### Purge
+
+Status: feito ([.design/purge.md](../.design/purge.md), 2026-10-29; AD-011; feature [purge](features/purge/verification.md) verificada). Saiu no PR #7, squash `a6d1ff0`, em 2026-10-29.
+
+O que chegou: o campo opcional “Purge por troca (g)” só na impressão de várias cores. Vazio grava e vale zero. Cada troca soma essas gramas no material, pelo preço da cor que entra. Cor única e projeto de mesas não mostram o campo, e a conta não lê o texto. Duplicar copia o campo.
+
+Ideia, como estava anotada:
+
+Numa impressão de várias cores, o material é só as gramas de cada cor. A troca de filamento no meio da peça não acrescenta o purge. Num projeto de mesas, cada mesa é um filamento só e também não troca no meio.
+
+Quando isto chegar, a impressão de várias cores soma as gramas de purge de cada troca. Projeto de mesas continua sem purge, porque a mesa não troca de filamento.
+
+Fora deste item, até alguém pedir: torre de purge com tempo próprio, e purge medido pelo fatiador.
+
+Decidido no desenho: as gramas por troca são um número na calculadora, não um padrão da impressora. O campo é opcional e só aparece na impressão de várias cores.
+
 ## Aberto
 
 ### Estoque de filamentos
@@ -115,18 +131,6 @@ O material é a soma das gramas digitadas. Não há uma parcela a mais pelo fila
 Quando isto chegar, o lote soma esse refugo ao material. Energia, depreciação e o percentual de mão de obra continuam sobre a base que já existe; a mão de obra passa a ver o material já com o refugo, porque a base dela é material + energia + depreciação.
 
 Fora deste item, até alguém pedir: refugo diferente por cor, e baixa desse peso num estoque.
-
-### Purge
-
-Status: rascunho em [.design/purge.md](../.design/purge.md), 2026-10-28. Ainda não é plano nem código. As gramas na calculadora estão fechadas; o desenho espera confirmação.
-
-Decidido em 2026-10-28: as gramas de purge são um número por troca, digitado na calculadora, não um padrão da impressora.
-
-Numa impressão de várias cores, o material é só as gramas de cada cor. A troca de filamento no meio da peça não acrescenta o purge. Num projeto de mesas, cada mesa é um filamento só e também não troca no meio.
-
-Quando isto chegar, a impressão de várias cores soma as gramas de purge de cada troca. Projeto de mesas continua sem purge, porque a mesa não troca de filamento.
-
-Fora deste item, até alguém pedir: torre de purge com tempo próprio, e purge medido pelo fatiador.
 
 ### Mão de obra por hora
 
