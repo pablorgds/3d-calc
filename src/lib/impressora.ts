@@ -7,8 +7,17 @@ import {
   removerImpressoraNoBanco,
 } from "./acoes"
 import { PRINTER_STORAGE_KEY, PROJECTS_STORAGE_KEY } from "./chaves"
-import { aplicarResultado, assinarEstado, lerEstado, type Leitura } from "./estado"
-import { criarOrdemDeAtualizacao, type Printer, type PrinterStore } from "./impressora-store"
+import { aplicarResultado, assinarEstado, lerEstado, publicarEstado, type Leitura, type ResultadoBanco } from "./estado"
+import {
+  activatePrinter,
+  criarOrdemDeAtualizacao,
+  criarRevisaoDeGravacao,
+  deletePrinter,
+  insertPrinter,
+  updatePrinter,
+  type Printer,
+  type PrinterStore,
+} from "./impressora-store"
 
 export { PRINTER_STORAGE_KEY }
 export type { Printer, PrinterStore }
@@ -45,30 +54,77 @@ export function usePrinterStore(): PrinterStore | null {
   return leitura.printers
 }
 
-export function setActivePrinter(id: string) {
-  void marcarImpressoraNoBanco(id).then((resultado) => {
-    aplicarResultado(resultado)
+const ordemAtualizacao = criarOrdemDeAtualizacao()
+const revisao = criarRevisaoDeGravacao()
+let fila: Promise<void> = Promise.resolve()
+let pendente: { id: string; patch: Partial<Omit<Printer, "id">> } | null = null
+
+function comStore(next: (store: PrinterStore) => PrinterStore) {
+  const vista = revisao.tocar()
+  const atual = lerEstado()
+  if (atual.status === "pronto") {
+    publicarEstado({ status: "pronto", printers: next(atual.printers), projects: atual.projects })
+  }
+  return vista
+}
+
+function enfileirar(vista: number, pedido: () => Promise<ResultadoBanco>) {
+  fila = fila.then(async () => {
+    try {
+      const resultado = await pedido()
+      if (resultado.status === "erro" || revisao.aceitar(vista)) aplicarResultado(resultado)
+    } catch {
+      if (revisao.aceitar(vista)) aplicarResultado({ status: "erro" })
+    }
   })
 }
 
-const ordemAtualizacao = criarOrdemDeAtualizacao()
+function enfileirarGravacao(id: string, patch: Partial<Omit<Printer, "id">>, vista: number) {
+  const ticket = ordemAtualizacao.marcar(id)
+  enfileirar(vista, async () => {
+    const resultado = await atualizarImpressoraNoBanco(id, patch)
+    if (resultado.status === "erro") return resultado
+    if (!ordemAtualizacao.aceitar(id, ticket)) return { status: "rejeitado" }
+    return resultado
+  })
+}
+
+export function editarImpressoraNaHora(id: string, patch: Partial<Omit<Printer, "id">>) {
+  comStore((store) => updatePrinter(store, id, patch))
+  if (pendente && pendente.id !== id) gravarImpressoraPendente()
+  pendente = {
+    id,
+    patch: { ...(pendente?.id === id ? pendente.patch : {}), ...patch },
+  }
+}
+
+export function gravarImpressoraPendente() {
+  if (!pendente) return
+  const { id, patch } = pendente
+  pendente = null
+  enfileirarGravacao(id, patch, revisao.atual())
+}
+
+export function setActivePrinter(id: string) {
+  gravarImpressoraPendente()
+  const vista = comStore((store) => activatePrinter(store, id))
+  enfileirar(vista, () => marcarImpressoraNoBanco(id))
+}
 
 export function updatePrinterById(id: string, patch: Partial<Omit<Printer, "id">>) {
-  const ticket = ordemAtualizacao.marcar(id)
-  void atualizarImpressoraNoBanco(id, patch).then((resultado) => {
-    if (!ordemAtualizacao.aceitar(id, ticket)) return
-    aplicarResultado(resultado)
-  })
+  gravarImpressoraPendente()
+  const vista = comStore((store) => updatePrinter(store, id, patch))
+  enfileirarGravacao(id, patch, vista)
 }
 
 export function addPrinter(id: string) {
-  void adicionarImpressoraNoBanco(id).then((resultado) => {
-    aplicarResultado(resultado)
-  })
+  gravarImpressoraPendente()
+  const vista = comStore((store) => insertPrinter(store, id))
+  enfileirar(vista, () => adicionarImpressoraNoBanco(id))
 }
 
 export function removePrinter(id: string) {
-  void removerImpressoraNoBanco(id).then((resultado) => {
-    aplicarResultado(resultado)
-  })
+  gravarImpressoraPendente()
+  const vista = comStore((store) => deletePrinter(store, id))
+  enfileirar(vista, () => removerImpressoraNoBanco(id))
 }

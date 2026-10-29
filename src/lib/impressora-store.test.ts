@@ -1,17 +1,26 @@
 import assert from "node:assert/strict"
+import fs from "node:fs"
 import test from "node:test"
+import { erroCampo, parseDecimal, type Field } from "./custo.ts"
 import {
   activatePrinter,
   criarOrdemDeAtualizacao,
+  criarRevisaoDeGravacao,
   deletePrinter,
   insertPrinter,
   parsePrinterStore,
   persistirNumeroNoEvento,
+  persistirTextoNoEvento,
   serializePrinterStore,
   updatePrinter,
   DEFAULT_PRINTER_ID,
   defaultPrinter,
 } from "./impressora-store.ts"
+
+function lerNumero(field: Field): number | null {
+  if (field.status !== "ok") return null
+  return field.value
+}
 
 test("sem gravação, a máquina é a K2 Pro", () => {
   const store = parsePrinterStore(null)
@@ -129,6 +138,82 @@ test("coeficiente 20 apos digitar rapido", () => {
   if (ordem.aceitar(id, cedo)) store = updatePrinter(store, id, { coefficient: "2" })
   assert.equal(store.printers[0].coefficient, "20")
   assert.notEqual(store.printers[0].coefficient, "2")
+})
+
+test("nome da nova impressora grava no blur e a resposta atrasada nao apaga o texto", () => {
+  const id = "ender"
+  let local = insertPrinter(parsePrinterStore(null), id)
+  const revisao = criarRevisaoDeGravacao()
+  const vistaAdd = revisao.tocar()
+  assert.equal(persistirTextoNoEvento("change"), false)
+  for (const nome of ["E", "En", "End", "Ende", "Ender 3"]) {
+    revisao.tocar()
+    local = updatePrinter(local, id, { name: nome })
+  }
+  assert.equal(local.printers[1].name, "Ender 3")
+  const vindoDoAdicionar = insertPrinter(parsePrinterStore(null), id)
+  if (revisao.aceitar(vistaAdd)) local = vindoDoAdicionar
+  assert.equal(local.printers[1].name, "Ender 3")
+  assert.notEqual(local.printers[1].name, "Nova impressora")
+
+  assert.equal(persistirTextoNoEvento("blur"), true)
+  const vistaBlur = revisao.atual()
+  assert.equal(revisao.aceitar(vistaAdd), false)
+  assert.equal(revisao.aceitar(vistaBlur), true)
+  const ordem = criarOrdemDeAtualizacao()
+  const cedo = ordem.marcar(id)
+  const blur = ordem.marcar(id)
+  if (ordem.aceitar(id, blur)) local = updatePrinter(local, id, { name: "Ender 3" })
+  if (ordem.aceitar(id, cedo)) local = updatePrinter(local, id, { name: "E" })
+  assert.equal(local.printers[1].name, "Ender 3")
+})
+
+test("nova impressora aceita nome e numeros sem ler value no campo vazio", () => {
+  let store = insertPrinter(parsePrinterStore(null), "ender")
+  const nova = store.printers[1]
+  assert.equal(nova.name, "Nova impressora")
+  assert.equal(lerNumero(parseDecimal(nova.watts)), null)
+  assert.equal(lerNumero(parseDecimal(nova.energyPrice)), null)
+  assert.equal(lerNumero(parseDecimal(nova.printerPrice)), null)
+  assert.equal(lerNumero(parseDecimal(nova.lifeHours)), null)
+  assert.equal(lerNumero(parseDecimal(nova.coefficient)), null)
+  assert.equal(erroCampo(""), "Campo vazio.")
+  assert.equal(erroCampo("abc"), "Use zero ou um número positivo.")
+  assert.equal(persistirNumeroNoEvento("blur", "change"), false)
+
+  assert.equal(persistirNumeroNoEvento("blur", "blur"), true)
+  store = updatePrinter(store, "ender", {
+    name: "Ender 3",
+    watts: "120",
+    energyPrice: "0,95",
+    printerPrice: "2500",
+    lifeHours: "4000",
+    coefficient: "20",
+  })
+  const preenchida = store.printers[1]
+  assert.equal(preenchida.name, "Ender 3")
+  assert.equal(lerNumero(parseDecimal(preenchida.watts)), 120)
+  assert.equal(lerNumero(parseDecimal(preenchida.energyPrice)), 0.95)
+  assert.equal(lerNumero(parseDecimal(preenchida.printerPrice)), 2500)
+  assert.equal(lerNumero(parseDecimal(preenchida.lifeHours)), 4000)
+  assert.equal(lerNumero(parseDecimal(preenchida.coefficient)), 20)
+  assert.equal(erroCampo(preenchida.watts), null)
+  assert.equal(store.activeId, "ender")
+})
+
+test("a tela grava o nome no blur e mostra a impressora nova antes do banco", () => {
+  const form = fs.readFileSync(new URL("../components/configuracoes-form.tsx", import.meta.url), "utf8")
+  const cliente = fs.readFileSync(new URL("./impressora.ts", import.meta.url), "utf8")
+  assert.match(form, /persistirTextoNoEvento\("change"\)/)
+  assert.match(form, /editarImpressoraNaHora/)
+  assert.match(form, /persistirTextoNoEvento\("blur"\)/)
+  assert.match(form, /gravarImpressoraPendente/)
+  assert.match(form, /key=\{active\.id\}/)
+  const adicionar = cliente.slice(cliente.indexOf("export function addPrinter"), cliente.indexOf("export function removePrinter"))
+  assert.match(adicionar, /gravarImpressoraPendente\(\)/)
+  assert.ok(adicionar.includes("insertPrinter"))
+  assert.ok(adicionar.indexOf("gravarImpressoraPendente") < adicionar.indexOf("insertPrinter"))
+  assert.ok(adicionar.indexOf("insertPrinter") < adicionar.indexOf("adicionarImpressoraNoBanco"))
 })
 
 test("update impressora mais recente vence", () => {

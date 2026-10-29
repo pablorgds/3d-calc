@@ -5,8 +5,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { NumberField } from "@/components/number-field"
-import { addPrinter, removePrinter, setActivePrinter, updatePrinterById, useLeitura } from "@/lib/impressora"
-import { activePrinterOf } from "@/lib/impressora-store"
+import {
+  addPrinter,
+  editarImpressoraNaHora,
+  gravarImpressoraPendente,
+  removePrinter,
+  setActivePrinter,
+  updatePrinterById,
+  useLeitura,
+} from "@/lib/impressora"
+import { activePrinterOf, persistirTextoNoEvento } from "@/lib/impressora-store"
 import { ROTULO_COEFICIENTE, vistaCarregamento } from "@/lib/vistas"
 
 export function ConfiguracoesForm() {
@@ -90,7 +98,7 @@ export function ConfiguracoesForm() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card key={active.id}>
         <CardHeader>
           <CardTitle>{active.name.trim() || "Sem nome"}</CardTitle>
           <CardDescription>Potência, tarifa, preço e vida útil desta máquina.</CardDescription>
@@ -101,7 +109,14 @@ export function ConfiguracoesForm() {
             <Input
               id="nome-impressora"
               value={active.name}
-              onChange={(event) => updatePrinterById(active.id, { name: event.target.value })}
+              onChange={(event) => {
+                const next = event.target.value
+                if (persistirTextoNoEvento("change")) updatePrinterById(active.id, { name: next })
+                else editarImpressoraNaHora(active.id, { name: next })
+              }}
+              onBlur={() => {
+                if (persistirTextoNoEvento("blur")) gravarImpressoraPendente()
+              }}
               autoComplete="off"
               data-testid="nome-impressora"
               className="h-11"
