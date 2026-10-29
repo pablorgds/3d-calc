@@ -252,8 +252,7 @@ export function calculate(input: CalcInput): CalcResult {
   const purgeGrams = purge.status === "ok" ? purge.value : 0
 
   const colors: ColorDetail[] = input.colors.map((color, index) => {
-    const invalid = color.pricePerKg.status !== "ok" || color.grams.status !== "ok"
-    if (invalid) {
+    if (color.pricePerKg.status !== "ok" || color.grams.status !== "ok") {
       return { id: color.id, name: color.name, hex: color.hex, grams: null, material: null, invalid: true }
     }
     const grams = color.grams.value
