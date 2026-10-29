@@ -309,6 +309,7 @@ async function garantirSchema(client: PoolClient) {
          grams text NOT NULL DEFAULT '',
          client_name text NOT NULL DEFAULT '',
          client_phone text NOT NULL DEFAULT '',
+         purge text NOT NULL DEFAULT '',
          updated_at double precision NOT NULL
        )`
     )
@@ -327,10 +328,15 @@ async function garantirSchema(client: PoolClient) {
   await firmarChaves(client)
   await migrarCliente(client)
   await migrarCoeficiente(client)
+  await migrarPurge(client)
 }
 
 async function migrarCoeficiente(client: PoolClient) {
   await client.query("ALTER TABLE impressora ADD COLUMN IF NOT EXISTS coefficient text NOT NULL DEFAULT ''")
+}
+
+async function migrarPurge(client: PoolClient) {
+  await client.query("ALTER TABLE projeto ADD COLUMN IF NOT EXISTS purge text NOT NULL DEFAULT ''")
 }
 
 async function migrarCliente(client: PoolClient) {
@@ -418,9 +424,10 @@ async function lerProjetos(client: PoolClient, contaId: string): Promise<Project
     grams: string
     client_name: string
     client_phone: string
+    purge: string
     updated_at: string | number
   }>(
-    "SELECT id, name, printer_id, mode, copies, hours, minutes, labor, color_mode, grams, client_name, client_phone, updated_at FROM projeto WHERE conta_id = $1",
+    "SELECT id, name, printer_id, mode, copies, hours, minutes, labor, color_mode, grams, client_name, client_phone, purge, updated_at FROM projeto WHERE conta_id = $1",
     [contaId]
   )
   const colors = await client.query<{
@@ -489,6 +496,7 @@ async function lerProjetos(client: PoolClient, contaId: string): Promise<Project
       mesas: mesasDoProjeto.get(row.id) ?? [],
       clientName: row.client_name,
       clientPhone: row.client_phone,
+      purge: row.purge,
       updatedAt: Number(row.updated_at),
     }))
   )
@@ -566,8 +574,8 @@ async function inserirProjeto(client: PoolClient, contaId: string, project: Proj
   await exigirUpdatedAt(client, contaId, project.id, expected)
   const gravado = prepararGravacao(project)
   await client.query(
-    `INSERT INTO projeto (id, conta_id, name, printer_id, mode, copies, hours, minutes, labor, color_mode, grams, client_name, client_phone, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    `INSERT INTO projeto (id, conta_id, name, printer_id, mode, copies, hours, minutes, labor, color_mode, grams, client_name, client_phone, purge, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
      ON CONFLICT (id) DO UPDATE SET
        name = EXCLUDED.name,
        printer_id = EXCLUDED.printer_id,
@@ -580,6 +588,7 @@ async function inserirProjeto(client: PoolClient, contaId: string, project: Proj
        grams = EXCLUDED.grams,
        client_name = EXCLUDED.client_name,
        client_phone = EXCLUDED.client_phone,
+       purge = EXCLUDED.purge,
        updated_at = EXCLUDED.updated_at
      WHERE projeto.conta_id = EXCLUDED.conta_id`,
     [
@@ -596,6 +605,7 @@ async function inserirProjeto(client: PoolClient, contaId: string, project: Proj
       gravado.grams,
       gravado.clientName,
       gravado.clientPhone,
+      gravado.purge ?? "",
       gravado.updatedAt,
     ]
   )

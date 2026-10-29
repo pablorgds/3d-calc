@@ -61,7 +61,8 @@ Versão atual do JSON: `1`.
       ],
       "updatedAt": 10,
       "clientName": "",
-      "clientPhone": ""
+      "clientPhone": "",
+      "purge": ""
     }
   ]
 }
@@ -89,8 +90,9 @@ Um projeto é uma impressão ou uma lista de mesas. A tabela `mesa` guarda cada 
   ],
   "clientName": "",
   "clientPhone": "",
+  "purge": "",
   "updatedAt": 10
 }
 ```
 
-A lista ordena por `updatedAt` decrescente e, no empate, pelo nome em pt-BR. Ids repetidos na leitura ficam só com a primeira ocorrência. JSON inválido ou item sem `id` e `mode` some da lista. Duplicar copia o lote, inclusive as cores e o cliente, com o nome acrescido de “ (cópia)”. O cliente é `clientName` e `clientPhone`. O nome fica como foi digitado. O telefone na calculadora entra com a máscara `(xx) xxxxx-xxxx`. Um valor já gravado em outro formato permanece até a calculadora gravar de novo. Os dois podem ser `""`. Um payload sem esses campos lê os dois como `""`. O total continua fora do projeto.
+A lista ordena por `updatedAt` decrescente e, no empate, pelo nome em pt-BR. Ids repetidos na leitura ficam só com a primeira ocorrência. JSON inválido ou item sem `id` e `mode` some da lista. Duplicar copia o lote, inclusive as cores, o cliente e o purge, com o nome acrescido de “ (cópia)”. O purge é texto no projeto. Vazio é permitido e a conta lê zero. Cor única e mesas guardam o texto e não usam na conta. Um payload sem `purge` lê `""`. O cliente é `clientName` e `clientPhone`. O nome fica como foi digitado. O telefone na calculadora entra com a máscara `(xx) xxxxx-xxxx`. Um valor já gravado em outro formato permanece até a calculadora gravar de novo. Os dois podem ser `""`. Um payload sem esses campos lê os dois como `""`. O total continua fora do projeto.

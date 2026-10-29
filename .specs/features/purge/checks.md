@@ -103,96 +103,127 @@ Status: done
 
 **C23** - Várias cores e sem mesas: a tela mostra o campo `Purge por troca (g)` (AC 23)
 Proof: `node --experimental-strip-types --test src/lib/vistas.test.ts --test-name-pattern "rotulo purge nas varias cores"`
+Status: done
 
 **C24** - Cor única: a tela não mostra o campo `Purge por troca (g)` (AC 24)
 Proof: `node --experimental-strip-types --test src/lib/vistas.test.ts --test-name-pattern "rotulo purge ausente na cor unica"`
+Status: done
 
 **C25** - Com ao menos uma mesa: a tela não mostra o campo `Purge por troca (g)` (AC 25)
 Proof: `node --experimental-strip-types --test src/lib/vistas.test.ts --test-name-pattern "rotulo purge ausente nas mesas"`
+Status: done
 
 **C26** - Campo visível e purge `''`: a tela não mostra `Campo vazio.` (AC 26)
 Proof: `node --experimental-strip-types --test src/lib/vistas.test.ts --test-name-pattern "purge vazio sem a frase campo vazio"`
+Status: done
 
 **C27** - Gravar purge `30` no lote `Suporte` devolve `30` na leitura seguinte (AC 27)
 Proof: `node --experimental-strip-types --test src/lib/banco.test.ts --test-name-pattern "grava purge 30"`
+Status: done
 
 **C28** - Gravar purge `''` num lote `Suporte` que fecha devolve `''` na leitura seguinte (AC 28)
 Proof: `node --experimental-strip-types --test src/lib/banco.test.ts --test-name-pattern "grava purge vazio"`
+Status: done
 
 **C29** - Gravar purge ` 30 ` devolve ` 30 ` na leitura seguinte (AC 29)
 Proof: `node --experimental-strip-types --test src/lib/banco.test.ts --test-name-pattern "grava purge com espacos em volta"`
+Status: done
 
 **C30** - Gravar purge `   ` devolve `   ` na leitura seguinte (AC 30)
 Proof: `node --experimental-strip-types --test src/lib/banco.test.ts --test-name-pattern "grava purge so com espacos"`
+Status: done
 
 **C31** - Uma linha de `projeto` que não tinha purge, depois da coluna, lê `''` (AC 31)
 Proof: `node --experimental-strip-types --test src/lib/banco.test.ts --test-name-pattern "projeto antigo le purge vazio"`
+Status: done
 
 **C32** - Um payload de projeto sem purge lê `''` (AC 32)
 Proof: `node --experimental-strip-types --test src/lib/projetos-store.test.ts --test-name-pattern "payload sem purge le vazio"`
+Status: done
 
 **C33** - Gravar um lote novo `Suporte` com purge `abc` não cria o projeto e marca o campo com `Use zero ou um número positivo.` (AC 33)
 Proof: `node --experimental-strip-types --test src/lib/vistas.test.ts --test-name-pattern "purge abc nao cria o lote"`
+Status: done
 
 **C34** - Purge gravado `''` e a tentativa de gravar `abc` deixa a leitura seguinte em `''` (AC 34)
 Proof: `node --experimental-strip-types --test src/lib/vistas.test.ts --test-name-pattern "purge abc nao substitui o vazio"`
+Status: done
 
 **C35** - Gravar purge `30` e depois salvar o mesmo projeto como cor única devolve purge `30` (AC 35)
 Proof: `node --experimental-strip-types --test src/lib/banco.test.ts --test-name-pattern "purge sobrevive na cor unica"`
+Status: done
 
 **C36** - Gravar purge `30` e depois salvar o mesmo projeto com uma mesa devolve purge `30` (AC 36)
 Proof: `node --experimental-strip-types --test src/lib/banco.test.ts --test-name-pattern "purge sobrevive nas mesas"`
+Status: done
 
 **C37** - Duplicar `Suporte` com purge `30` grava a cópia com purge `30` e nome `Suporte (cópia)` (AC 37)
 Proof: `node --experimental-strip-types --test src/lib/banco.test.ts --test-name-pattern "duplicar copia o purge 30"`
+Status: done
 
 **C38** - Duplicar um projeto de mesas com purge `30` sem uso grava a cópia com purge `30` (AC 38)
 Proof: `node --experimental-strip-types --test src/lib/banco.test.ts --test-name-pattern "duplicar mesas copia o purge"`
+Status: done
 
 **C39** - Gravar purge `30` duas vezes no mesmo id deixa um projeto com purge `30` (AC 39)
 Proof: `node --experimental-strip-types --test src/lib/banco.test.ts --test-name-pattern "gravar purge duas vezes deixa um projeto"`
+Status: done
 
 **C40** - A conta A grava purge `30` e a leitura da conta B não devolve esse `30` (AC 40)
 Proof: `node --experimental-strip-types --test src/lib/banco.test.ts --test-name-pattern "purge nao vaza para outra conta"`
+Status: done
 
 **C41** - Uma gravação de purge `30` que perde a corrida deixa a leitura seguinte em `''` (AC 41)
 Proof: `node --experimental-strip-types --test src/lib/banco.test.ts --test-name-pattern "purge atrasado fica vazio"`
+Status: done
 
 **C42** - A tabela de custos não tem linha `Purge` (AC 42)
 Proof: `node --experimental-strip-types --test src/lib/vistas.test.ts --test-name-pattern "tabela sem linha purge"`
+Status: done
 
 **C43** - A impressão de prova com purge `30` e mão de obra `0` mostra o peso `formatGrams(35)` (AC 43)
 Proof: `node --experimental-strip-types --test src/lib/vistas.test.ts --test-name-pattern "peso da prova sem as gramas de purge"`
+Status: done
 
 **C44** - Impressão de prova com purge `30`, mão de obra `0`, lote `Suporte`, cliente `Ana` e telefone `11999990000`: o texto contém `formatBRL(9.9)` e não contém `Purge` nem `Material` (AC 44)
 Proof: `node --experimental-strip-types --test src/lib/vistas.test.ts --test-name-pattern "texto do cliente leva o total com purge"`
+Status: done
 
 **C45** - Purge `abc` não mostra `Copiar orçamento` (AC 45)
 Proof: `node --experimental-strip-types --test src/lib/vistas.test.ts --test-name-pattern "purge abc esconde copiar orcamento"`
+Status: done
 
 **C46** - A lista da impressão de prova gravada com purge `30` e mão de obra `0`, sem gravar de novo, mostra `formatBRL(9.9)` (AC 46)
 Proof: `node --experimental-strip-types --test src/lib/vistas.test.ts --test-name-pattern "lista mostra o total com purge"`
+Status: done
 
 **C47** - Coeficiente de `''` para `20`, sem gravar o projeto de novo: a lista mostra `formatBRL(12.375)` e o purge gravado continua `30` (AC 47)
 Proof: `node --experimental-strip-types --test src/lib/vistas.test.ts --test-name-pattern "lista acompanha coeficiente com purge gravado"`
+Status: done
 
 **C48** - O formulário da impressora não mostra `Purge por troca (g)` (AC 48)
 Proof: `node --experimental-strip-types --test src/lib/vistas.test.ts --test-name-pattern "impressora sem rotulo de purge"`
+Status: done
 
 **C49** - Purge `abc` com as três cores fechadas: a tela não mostra `Há cor com preço ou peso vazio ou inválido.` (AC 49)
 Proof: `node --experimental-strip-types --test src/lib/vistas.test.ts --test-name-pattern "purge abc nao usa o aviso de cor"`
+Status: done
 
 **C50** - Preço de uma cor `''` e purge `30`: a tela mostra `Há cor com preço ou peso vazio ou inválido.` (AC 50)
 Proof: `node --experimental-strip-types --test src/lib/vistas.test.ts --test-name-pattern "cor vazia mantem o aviso de cor"`
+Status: done
 
 **C51** - Sem cores e purge `''`: a tela mostra `Sem cores. Material R$ 0,00.` (AC 51)
 Proof: `node --experimental-strip-types --test src/lib/vistas.test.ts --test-name-pattern "sem cores e purge vazio mostra material zero"`
+Status: done
 
 **C52** - Sem cores e purge `abc`: a tela não mostra `Sem cores. Material R$ 0,00.` (AC 52)
 Proof: `node --experimental-strip-types --test src/lib/vistas.test.ts --test-name-pattern "sem cores e purge abc esconde material zero"`
+Status: done
 
 **C53** - `projeto` tem `purge text NOT NULL` com default `''` (door 1)
 Proof: `node --experimental-strip-types --test src/lib/banco.test.ts --test-name-pattern "coluna purge no schema"`
+Status: done
 
 ## Coverage
 

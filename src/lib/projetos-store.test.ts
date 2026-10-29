@@ -21,6 +21,7 @@ function project(overrides: Partial<Project> = {}): Project {
     mesas: [],
     clientName: "",
     clientPhone: "",
+    purge: "",
     updatedAt: 10,
     ...overrides,
   }
@@ -121,6 +122,16 @@ test("payload sem cliente le vazio", () => {
   )
   assert.equal(projects[0]?.clientName, "")
   assert.equal(projects[0]?.clientPhone, "")
+})
+
+test("payload sem purge le vazio", () => {
+  const projects = parseProjects(
+    JSON.stringify({
+      version: 1,
+      projects: [{ id: "p1", name: "Suporte", mode: "lote", updatedAt: 1 }],
+    })
+  )
+  assert.equal(projects[0]?.purge, "")
 })
 
 test("payload de projetos versao 1", () => {
