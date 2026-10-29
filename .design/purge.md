@@ -1,12 +1,12 @@
 # Purge
 
 > Planeje a partir deste documento. Cada fatia abaixo carrega a própria forma — copie, não redesenhe.
-> Status: rascunho aguardando confirmação do dono, 2026-10-28. A decisão 1 está fechada.
+> Status: confirmado pelo dono, 2026-10-29. A decisão 1 foi fechada em 2026-10-28. A decisão 5 permanece: vazio é `''` e vale zero; o campo é opcional.
 
 ## Situation
 
 - Project: em uso
-- Decision: a decisão 1 foi fechada pelo dono em 2026-10-28, nesta conversa. O restante deste desenho é rascunho e espera confirmação.
+- Decision: confirmado pelo dono em 2026-10-29, nesta conversa. A decisão 1 tinha sido fechada em 2026-10-28. O campo “Purge por troca (g)” é opcional: o dono só preenche quando o purge importa naquela impressão; vazio é permitido e vale zero (decisão 5).
 - In flight: a tarifa e o coeficiente ficam na impressora e a lista recalcula o lote com a máquina atual. O orçamento é uma leitura da tela e não grava o total. Mesas, login e o cliente do projeto ficam como já estão. Refugo, mão de obra por hora, tarifa por projeto e estoque de filamentos ficam de fora.
 - At stake: revertível numa tarde
 
@@ -16,13 +16,13 @@ O dono precifica nesta máquina e passa o preço antes de imprimir. Numa impress
 
 ## Success
 
-- Worked if: o próximo orçamento de várias cores, com um número em “Purge por troca (g)”, cobra esse purge em cada troca pelo preço da cor que entra, e um projeto de mesas continua o total de hoje
+- Worked if: o próximo orçamento de várias cores, com um número em “Purge por troca (g)”, cobra esse purge em cada troca pelo preço da cor que entra; sem número, o campo vazio grava e o material continua só as cores; um projeto de mesas continua o total de hoje
 - Going wrong: o número mora na impressora, a mesa ganha purge, ou o material ignora o que foi digitado
 - Review: esse primeiro orçamento de várias cores — o dono
 
 ## Boundary
 
-In: um campo na calculadora, “Purge por troca (g)”, só na impressão de várias cores. O texto gravado no projeto. O material dessa impressão soma o purge de cada troca. Duplicar o projeto copia o campo. Vazio vale zero. Inválido deixa o material sem fechar.
+In: um campo na calculadora, “Purge por troca (g)”, só na impressão de várias cores. O texto gravado no projeto. O material dessa impressão soma o purge de cada troca. Duplicar o projeto copia o campo. O campo é opcional: vazio (`''`) vale zero e grava, porque o dono nem sempre tem o número. Inválido deixa o material sem fechar.
 
 Out: gramas na impressora — a decisão 1 recusou. Padrão da impressora com outro número no lote — recusado por agora. Um campo de gramas por troca — o dono quer um número só. Preço médio das cores, ou o purge inteiro na primeira cor. Torre de purge com tempo próprio, purge lido do fatiador, e baixa desse peso no estoque — ficam de fora até alguém pedir. Purge na mesa. Uma linha “Purge” no resultado, na lista ou no texto do cliente. Gravar o total no projeto.
 
@@ -128,3 +128,4 @@ Projeto já gravado ganha `purge` vazio. Uma leitura sem o campo é `''`. Nenhum
 - `.design/orcamento.md` — o orçamento é leitura da tela e não grava o total
 - `docs/custo.md` — material das cores, `invalid-color`, mão de obra sobre material + energia + depreciação
 - Confirmação do dono, 2026-10-28 — as gramas por troca são digitadas na calculadora, não na impressora
+- Confirmação do dono, 2026-10-29 — o desenho inteiro, inclusive a decisão 5: o campo é opcional, vazio é `''` e vale zero

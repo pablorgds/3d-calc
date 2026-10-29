@@ -14,13 +14,14 @@
 | AD-008 | The public name is Tailscale Funnel to 127.0.0.1:4317. The node name is `calculadora`. Postgres has no host port. The router does not forward 4317. The process on 4317 is the built app. A new conta is only admin `incluir` on `/usuarios`. | The owner confirmed `.design/url-publica.md` on 2026-10-08: no purchased domain, this PC when it is on, no public signup. | active | 2026-10-08 |
 | AD-009 | The client is the name and phone stored on `projeto`, both empty text allowed. There is no `cliente` table. A later feature must not add a shared client row unless the owner asks for one phone that changes in one place across lotes. The orçamento is a reading of the calculator and `projeto` stores no total. | The owner confirmed `.design/orcamento.md` on 2026-10-26. A shared client, or a total column, would freeze or fan out data the list still recomputes from the printer tariff. | active | 2026-10-26 |
 | AD-010 | The coeficiente is text on `impressora`, empty meaning zero. It scales only the money total of peça and lote: the closed sum divided by (1 − coefficient/100). Material, energy, depreciation, labor, minutes and grams stay unscaled. A later feature that adds cost adds it to that sum before the coefficient, and must not scale the displayed lines or store the total on `projeto`. | The owner confirmed `.design/coeficiente.md` on 2026-10-26. Scaling the lines would make material stop being grams times price. A coefficient on `projeto` would stop the list from following the printer. | active | 2026-10-27 |
+| AD-011 | Purge grams per swap are text on `projeto`, empty meaning zero. On a multicolor print they are reais on each incoming color: max(0, N−1) swaps, and the weight line stays the typed color grams. Mesas and single color do not read the text. A later feature must not move this number onto `impressora`, add a per-swap field, put the grams on the weight line, or store the total on `projeto`. | The owner confirmed `.design/purge.md` on 2026-10-29, including decision 5: the field is optional because he will not always have a value. A printer default or a weight that includes purge would price a print he left empty, or stop the weight being the typed grams. | active | 2026-10-29 |
 
 ## Handoff
 
-**Feature**: ux-calculadora (done, merged to main)
-**Where**: Merged via PR #1 (https://github.com/pablorgds/3d-calc/pull/1) as squash commit `e7d3f048bae06186cea4830d6645fab0a9cd6e6e`. C1–C16 PASS before merge. Check wording C10. `validate_verification.py ux-calculadora` exit 0.
+**Feature**: purge
+**Where**: Plan only. `.design/purge.md` marked confirmed. No `checks.md`. No app code.
 **In progress**: none
-**Next step**: none queued. Owner picks the next feature (TBD).
+**Next step**: owner reviews the plan
 **Blockers**: none
 **Uncommitted**: none
-**Branch**: main
+**Branch**: cursor/purge-plan-e98a
