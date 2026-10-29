@@ -274,3 +274,6 @@ Status: done
 - `lista-projetos.tsx` e `configuracoes-form.tsx` não entram na soma: as provas leem os dois e não os alteram
 - Total 256209/4 = 64052, abaixo do orçamento de 150k — one builder
 - Mechanism: one builder
+- Boundary: C1–C53 closed at d6cc151
+- Settled mid-build: none
+- Abandoned: none
