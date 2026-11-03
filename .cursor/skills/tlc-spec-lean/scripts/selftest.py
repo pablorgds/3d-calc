@@ -246,6 +246,9 @@ TOOLING = [
     ("lessons.py", "normalization regressions pass", ["selftest"], 0, "ok"),
     ("lessons.py", "--root before the subcommand is the documented form",
      ["--root", tempfile.gettempdir(), "list", "--status", "confirmed"], 0, ""),
+    ("brag.py", "normalization regressions pass", ["selftest"], 0, "ok"),
+    ("brag.py", "--root before the subcommand is the documented form",
+     ["--root", tempfile.gettempdir(), "list"], 0, ""),
 ]
 
 

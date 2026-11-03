@@ -120,6 +120,8 @@ it worthwhile.
 ├── STATE.md                    # Decisions log (AD-NNN) + Handoff snapshot
 ├── LESSONS.md                  # rendered by scripts/lessons.py - never hand-edit
 ├── lessons.json                # machine-owned
+├── brag.json                   # machine-owned brag log (PASS outcomes)
+├── BRAG.md                     # rendered by scripts/brag.py - never hand-edit
 └── features/<feature>/
     ├── plan.md                 # problem, flow, impact, then the rest of the shape, then criteria; audit last
     ├── checks.md               # claims + proofs, the coverage join, test policy, swept
@@ -198,9 +200,10 @@ proof, commit in coherent pieces. No task list, no per-task review tables. Bound
 
 **Verify** - when the last commit of the feature lands, dispatch a fresh Verifier in the
 same turn. Do not ask. Do not wait for "verify work". Procedure, report format and scoped
-re-verification: [verify.md](references/verify.md).
+re-verification: [verify.md](references/verify.md). On PASS, also record a brag entry per
+[brag.md](references/brag.md) (script `brag.py`).
 
-Durable memory - project decisions, session handoff, and the lessons layer:
+Durable memory - project decisions, session handoff, the lessons layer, and PASS brag:
 [memory.md](references/memory.md).
 
 ## Scripts
@@ -216,6 +219,8 @@ project root; pass `--root` when cwd differs. A non-zero exit means STOP and fix
 | Before each commit | `check_commit.py --message "<msg>"` |
 | Before declaring done | `validate_verification.py <feature>` |
 | At distillation | `lessons.py add ...` |
+| After Verifier PASS (with lessons) | `brag.py add --feature … --outcome … --evidence …` |
+| Weekly / review rollup | `brag.py week --from YYYY-MM-DD --to YYYY-MM-DD` |
 | After editing a validator or template | `selftest.py` |
 
 `validate_plan.py` runs the closure gate and guards the shape half against becoming what it

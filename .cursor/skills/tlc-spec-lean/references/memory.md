@@ -1,8 +1,8 @@
 # Memory
 
-Three things outlive a session: decisions that constrain future features, a handoff snapshot for
-picking work back up, and lessons distilled from real verification failures. All three live under
-`.specs/`.
+Four things outlive a session: decisions that constrain future features, a handoff snapshot for
+picking work back up, lessons distilled from real verification failures, and grounded PASS
+outcomes for later status. All four live under `.specs/`.
 
 ## `.specs/STATE.md`
 
@@ -149,8 +149,23 @@ Deduplication has no embeddings (stdlib only, zero dependencies), so near-duplic
 differently sit as separate candidates that never promote. The phrasing rules above are the
 mitigation.
 
+## Brag
+
+Verified PASS outcomes become a personal brag log, or they disappear into git history.
+Same split as lessons: **you supply judgment** (one-sentence outcome); `scripts/brag.py`
+owns IDs, dedup-by-feature, and rendering.
+
+| File | Owner |
+| --- | --- |
+| `.specs/brag.json` | script - canonical state, never hand-edit |
+| `.specs/BRAG.md` | script - rendered, read it, never write it |
+
+Write only after `validate_verification.py` exits 0. Read with `brag.py week` for status.
+Full procedure: [brag.md](brag.md).
+
 ## No code-execution tool
 
 Maintain `.specs/LESSONS.md` by hand under the same rules - grounded entries only,
 candidate→confirmed after two distinct features, prune stale candidates - and say once in chat
-that you are in the degraded path so the user knows the accounting is best-effort.
+that you are in the degraded path so the user knows the accounting is best-effort. For brag,
+append a grounded bullet to `.specs/BRAG.md` by hand with the same fields.
