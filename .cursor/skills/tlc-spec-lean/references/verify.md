@@ -341,3 +341,30 @@ The closing action, immediately after the report is written. Turn each grounded 
 surviving mutant, a precision gap, a failed check, an unproven member - into one reusable
 project-local lesson via `scripts/lessons.py`. A clean PASS records nothing, and that is correct
 rather than a miss. Commands and phrasing rules: [memory.md](memory.md).
+
+## 8. Record brag (PASS only)
+
+The closing action for **outcomes**, immediately after lessons. A Verifier PASS is the
+strongest signal that something shippable landed with proof - capture it once so weekly
+status and reviews do not reconstruct the story from git alone.
+
+Only when `validate_verification.py` exited **0**:
+
+```bash
+python3 <skill-dir>/scripts/brag.py --root . add \
+  --feature "<feature folder>" \
+  --outcome "<one sentence: what shipped and why it matters>" \
+  --evidence "verification.md#Gate" \
+  --verified_at "<YYYY-MM-DD>" \
+  --profile "<from this report>" \
+  --checks "<N/N proven>" \
+  --diff-range "<base>..<head>" \
+  --pr "<PR URL if any>" \
+  --tags "<optional>"
+```
+
+`--evidence` is mandatory; the script exits non-zero without it. A FAIL records nothing
+here (lessons may still run). Full rules: [brag.md](brag.md).
+
+If the report was PASS and you recorded zero brag, say so in chat - silent skipping is
+how the file dies.
