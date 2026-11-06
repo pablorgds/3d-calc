@@ -6,17 +6,30 @@ outcomes for later status. All four live under `.specs/`.
 
 ## `.specs/STATE.md`
 
-Two sections, written by different phases, never overwritten together.
+Two sections, written by different phases, never overwritten together. Decisions stay **in this
+file**. Do not generate one markdown file per ADR.
+
+Each ADR is a uniquely headed block. A single markdown table is one git hunk: two developers
+appending rows always conflict. Distinct `### AD-<id>` headings let git tell them apart.
 
 ```markdown
 # Project state
 
 ## Decisions
 
-| ID | Decision | Rationale | Status | Date |
-| --- | --- | --- | --- | --- |
-| AD-001 | Webhook ingest is idempotent on provider delivery id | replays are routine and cheap to dedup at the edge | active | 2026-02-14 |
-| AD-002 | Money is stored in integer cents | superseded by AD-007 | superseded by AD-007 | 2026-03-02 |
+### AD-idempotent-webhooks
+
+- Status: active
+- Date: 2026-02-14
+- Decision: Webhook ingest is idempotent on provider delivery id
+- Rationale: replays are routine and cheap to dedup at the edge
+
+### AD-money-cents
+
+- Status: superseded by AD-money-minor-units
+- Date: 2026-03-02
+- Decision: Money is stored in integer cents
+- Rationale: superseded once minor units were named
 
 ## Handoff
 
@@ -29,9 +42,14 @@ Two sections, written by different phases, never overwritten together.
 **Branch**: <name>
 ```
 
-**Section-scoped writes are critical.** Replace only the body between a `##` header and the next
-one. Overwriting the whole file silently destroys the decisions log, and nothing downstream
-notices until a future feature contradicts a decision nobody can find.
+**The heading is the unique id.** Grep `^### AD-` before inserting. Prefer `AD-<feature-folder>`
+when that heading is free; if the feature already has one, `AD-<feature>-<short>`. Do not allocate
+"the next AD-NNN" - two branches both taking AD-012 collide even when the text differs. Existing
+`AD-001` headings stay; do not renumber them.
+
+**Section-scoped writes are critical.** Insert or edit only the `### AD-<id>` block you own, and
+replace only `## Handoff` when updating the snapshot. Overwriting the whole file silently destroys
+the log and is what produced the team conflicts.
 
 **Where the repo already keeps ADRs or a decision log, use that instead.** Do not start a second
 log; append there and keep `STATE.md` to the handoff section. Two logs means neither is
@@ -39,18 +57,18 @@ authoritative.
 
 ## Recording a decision
 
-A decision belongs in `## Decisions` when a future feature has to conform to it: a convention, a
-pattern, a constraint. It is written when the choice is made, not at the end.
+A decision belongs under `## Decisions` when a future feature has to conform to it: a convention,
+a pattern, a constraint. It is written when the choice is made, not at the end.
 
 This is a different bar from `Landing` in `plan.md`. `Landing` carries doors this feature closes,
 with the literal shape someone will copy. `Decisions` carries the ones that reach past this
-feature. A door that is both gets a row in each - the shape in `Landing`, the constraint here.
+feature. A door that is both gets a `Landing` row and a `### AD-<id>` block here.
 
-**Read the active decisions before writing checks.** Every `active` `AD-NNN` is a constraint the
-work must conform to. Where one conflicts with what is best for this feature, you have two
-options and both are explicit: conform, or append a new entry that supersedes the old one (setting
-the old row's status to `superseded by AD-NNN`) and say why. Silently ignoring an active decision
-creates inconsistency nobody can see.
+**Read the active decisions before writing checks.** Every `### AD-<id>` with Status `active` is a
+constraint the work must conform to. Where one conflicts with what is best for this feature, you
+have two options and both are explicit: conform, or insert a new uniquely headed block that
+supersedes the old one (setting the old block's Status to `superseded by AD-<id>`) and say why.
+Silently ignoring an active decision creates inconsistency nobody can see.
 
 ## Resuming work
 

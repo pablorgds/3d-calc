@@ -31,11 +31,14 @@ subcommand: `python3 <skill-dir>/scripts/lessons.py --root <project> list --stat
 (add `--scope` or `--query` for the area this feature touches). Confirmed only - never
 `candidate` or `quarantined`. No store yet, or no code tool: skip silently.
 
-**Read `.specs/STATE.md` `## Decisions`.** Every `active` `AD-NNN` is a project-level constraint
-the shape must conform to. Where one conflicts with what is best for this feature, there are two
-options and both are explicit: conform, or append a new entry that supersedes the old one
-(setting the old row's status to `superseded by AD-NNN`) and say why. Silently ignoring an active
-decision creates an inconsistency nobody can find later.
+**Read `.specs/STATE.md` `## Decisions`.** Every `### AD-<id>` whose Status is `active` is a
+project-level constraint the shape must conform to. Where one conflicts with what is best for
+this feature, there are two options and both are explicit: conform, or insert a new uniquely
+headed `### AD-<id>` that supersedes the old one (and set the old block's Status to
+`superseded by AD-<id>`) and say why. Silently ignoring an active decision creates an
+inconsistency nobody can find later. Never append a row to a shared table - that hunk conflicts
+across a team. The id is unique in the file (`AD-<feature>` when free); do not take "next
+number".
 
 **Scan the code this feature touches.** Neighbouring features, the existing conventions, the
 terms already in use. This grounds the questions in reality, it is where you find that the source
@@ -307,8 +310,8 @@ in front of you can forbid something a later slice needs, and when a door reache
 boundary, say what it closes. When a decision needs a paragraph to justify itself, it is an ADR
 or an RFC and it comes **before** this file: write it, link it, keep the row literal.
 
-**A door that reaches past this feature also belongs in `.specs/STATE.md` `## Decisions`** - the
-shape here, the constraint there. See [memory.md](memory.md).
+**A door that reaches past this feature also belongs in `.specs/STATE.md` as its own
+`### AD-<id>` block** - the shape here, the constraint there. See [memory.md](memory.md).
 
 ## Impact - what gets disturbed
 
