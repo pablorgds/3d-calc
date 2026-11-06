@@ -117,7 +117,7 @@ it worthwhile.
 
 ```
 .specs/
-├── STATE.md                    # Decisions log (AD-NNN) + Handoff snapshot
+├── STATE.md                    # uniquely headed ADRs (### AD-<id>) + Handoff snapshot
 ├── LESSONS.md                  # rendered by scripts/lessons.py - never hand-edit
 ├── lessons.json                # machine-owned
 ├── brag.json                   # machine-owned brag log (PASS outcomes)
@@ -203,7 +203,8 @@ same turn. Do not ask. Do not wait for "verify work". Procedure, report format a
 re-verification: [verify.md](references/verify.md). On PASS, also record a brag entry per
 [brag.md](references/brag.md) (script `brag.py`).
 
-Durable memory - project decisions, session handoff, the lessons layer, and PASS brag:
+Durable memory - project decisions as uniquely headed `### AD-<id>` blocks in `STATE.md` (same
+file, no extra ADR files), session handoff, the lessons layer, and PASS brag:
 [memory.md](references/memory.md).
 
 ## Scripts
